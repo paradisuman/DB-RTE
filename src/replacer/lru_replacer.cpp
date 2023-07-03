@@ -22,11 +22,25 @@ LRUReplacer::~LRUReplacer() = default;
 bool LRUReplacer::victim(frame_id_t* frame_id) {
     // C++17 std::scoped_lock
     // 它能够避免死锁发生，其构造函数能够自动进行上锁操作，析构函数会对互斥量进行解锁操作，保证线程安全。
-    std::scoped_lock lock{latch_};  //  如果编译报错可以替换成其他lock
+    // std::scoped_lock lock{latch_};  //  如果编译报错可以替换成其他lock
 
     // Todo:
     //  利用lru_replacer中的LRUlist_,LRUHash_实现LRU策略
     //  选择合适的frame指定为淘汰页面,赋值给*frame_id
+
+    std::scoped_lock lock{latch_};
+
+    if (LRUlist_.empty()) {  // 如果LRU列表为空，那么就没有页面可以淘汰，返回false
+        frame_id = nullptr;
+        return false;
+    }
+
+    // 最少被访问的frame位于链表头部
+    *frame_id = LRUlist_.front();
+
+    // 移除链表中的尾部元素，并在哈希表中移除对应的项
+    LRUhash_.erase(*frame_id);
+    LRUlist_.pop_front();
 
     return true;
 }
@@ -40,6 +54,15 @@ void LRUReplacer::pin(frame_id_t frame_id) {
     // Todo:
     // 固定指定id的frame
     // 在数据结构中移除该frame
+
+    // 在数据结构中找到指定的frame
+    auto it = LRUhash_.find(frame_id);
+
+    // 若存在则在数据结构中和在LRU链表中删除
+    if(it != LRUhash_.end()) {
+        LRUlist_.erase(it->second);  // 在 list 中移除这个 frame
+        LRUhash_.erase(it);  // 在 map 中移除这个 frame
+    }
 }
 
 /**
@@ -50,6 +73,19 @@ void LRUReplacer::unpin(frame_id_t frame_id) {
     // Todo:
     //  支持并发锁
     //  选择一个frame取消固定
+
+    std::scoped_lock lock{latch_};
+
+    // 在数据结构中查找指定的frame
+    auto it = LRUhash_.find(frame_id);
+
+    // 若不存在则在数据结构中和在LRU链表中添加
+    if(it == LRUhash_.end()) {
+        // 将frame添加到链表的尾部
+        LRUlist_.push_back(frame_id);
+        // 在hash表中存储该frame和其在链表中的位置
+        LRUhash_[frame_id] = std::prev(LRUlist_.end());
+    }
 }
 
 /**
