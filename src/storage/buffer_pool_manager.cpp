@@ -280,7 +280,9 @@ bool BufferPoolManager::delete_page(PageId page_id) {
  */
 void BufferPoolManager::flush_all_pages(int fd) {
     for (auto &[page_id, frame_id] : page_table_) {
+        if (page_id.fd != fd)
+            continue;
         auto &page = pages_[frame_id];
-        disk_manager_->write_page(page_id.fd, page_id.page_no, page.data_, PAGE_SIZE);
+        disk_manager_->write_page(fd, page_id.page_no, page.data_, PAGE_SIZE);
     }
 }
