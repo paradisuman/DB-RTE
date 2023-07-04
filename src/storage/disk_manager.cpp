@@ -14,10 +14,11 @@ See the Mulan PSL v2 for more details. */
 #include <string.h>    // for memset
 #include <sys/stat.h>  // for stat
 #include <unistd.h>    // for lseek
+#include <algorithm>
 
 #include "defs.h"
 
-DiskManager::DiskManager() { memset(fd2pageno_, 0, MAX_FD * (sizeof(std::atomic<page_id_t>) / sizeof(char))); }
+DiskManager::DiskManager() { std::fill_n(fd2pageno_, MAX_FD, 0); }
 
 /**
  * @description: 将数据写入文件的指定磁盘页面中
