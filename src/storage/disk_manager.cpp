@@ -163,7 +163,8 @@ void DiskManager::destroy_file(const std::string &path) {
 
     // 检查unlink()函数的返回值，了解操作是否成功
     if (result != 0) {
-        throw UnixError();
+        throw FileNotFoundError(path);
+        // throw UnixError();
     }
 }
 
