@@ -15,8 +15,10 @@ See the Mulan PSL v2 for more details. */
 class RmFileHandle;
 
 class RmScan : public RecScan {
+    static constexpr int RM_FIRST_PAGE = 1;
     const RmFileHandle *file_handle_;
     Rid rid_;
+    int num_records_per_page_;
 public:
     RmScan(const RmFileHandle *file_handle);
 

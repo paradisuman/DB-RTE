@@ -16,7 +16,10 @@ See the Mulan PSL v2 for more details. */
 #include "rm_defs.h"
 #include "rm_file_handle.h"
 
-/* 记录管理器，用于管理表的数据文件，进行文件的创建、打开、删除、关闭 */
+/**
+ * @file 记录管理器
+ * @brief 用于管理表的数据文件，进行文件的创建、打开、删除、关闭
+ */
 class RmManager {
    private:
     DiskManager *disk_manager_;
@@ -75,8 +78,7 @@ class RmManager {
      * @param {RmFileHandle*} file_handle 要关闭文件的句柄
      */
     void close_file(const RmFileHandle* file_handle) {
-        disk_manager_->write_page(file_handle->fd_, RM_FILE_HDR_PAGE, (char *)&file_handle->file_hdr_,
-                                  sizeof(file_handle->file_hdr_));
+        disk_manager_->write_page(file_handle->fd_, RM_FILE_HDR_PAGE, (char *)&file_handle->file_hdr_, sizeof(file_handle->file_hdr_));
         // 缓冲区的所有页刷到磁盘，注意这句话必须写在close_file前面
         buffer_pool_manager_->flush_all_pages(file_handle->fd_);
         disk_manager_->close_file(file_handle->fd_);
