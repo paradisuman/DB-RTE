@@ -66,17 +66,6 @@ void BufferPoolManager::update_page(Page *page, PageId new_page_id, frame_id_t n
     // 若不需要将 new_page_id 插入回页表
     if (new_frame_id == INVALID_FRAME_ID)
         return;
-    // 重置 page data
-    try {
-        disk_manager_->read_page(
-            new_page_id.fd,
-            new_page_id.page_no,
-            page->data_,
-            PAGE_SIZE
-        );
-    } catch (RMDBError &e) {
-        // 新页面操作交给 new_page 完成
-    }
     // 更新page元数据
     page->id_ = new_page_id;
     // 在页表中插入新的页面记录
@@ -128,6 +117,13 @@ Page* BufferPoolManager::fetch_page(PageId page_id) {
 
     // 更新victim frame
     update_page(&victim_page, page_id, victim_frame_id);
+    // 读取磁盘内容到内存
+    disk_manager_->read_page(
+        page_id.fd,
+        page_id.page_no,
+        victim_page.data_,
+        PAGE_SIZE
+    );
 
     // 固定目标页 pin_count_置1
     replacer_->pin(victim_frame_id);
@@ -257,8 +253,6 @@ Page* BufferPoolManager::new_page(PageId* page_id) {
     // 更新 victim page
     update_page(&victim_page, *page_id, victim_frame_id);
     victim_page.reset_memory();
-    // // 重置页面 标记必须写入磁盘 is_dirty_ = true
-    // victim_page.is_dirty_ = true;
 
     // 固定 frame，更新 pincount
     replacer_->pin(victim_frame_id);
