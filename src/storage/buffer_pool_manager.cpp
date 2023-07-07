@@ -22,9 +22,7 @@ bool BufferPoolManager::find_victim_page(frame_id_t* frame_id) {
     // 1.1 未满获得frame
     // 1.2 已满使用lru_replacer中的方法选择淘汰页面
 
-    // std::scoped_lock lock{latch_};
     // 判断是否有free frame，有则直接分配 free frame，并且无需淘汰页面
-    std::scoped_lock lock{free_list_latch_};
 
     if (!free_list_.empty()) {
         *frame_id = free_list_.front();
@@ -49,26 +47,39 @@ void BufferPoolManager::update_page(Page *page, PageId new_page_id, frame_id_t n
     // 2 更新page table
     // 3 重置page的data，更新page id
 
-    // std::scoped_lock lock{latch_};
-
-    std::scoped_lock lock{page_table_latch_};
-
     const auto &page_id = page->id_;
 
     // 仅对脏页执行更新数据操作
     if (page->is_dirty_) {
         // 将脏页数据写入磁盘
-        disk_manager_->write_page(page_id.fd, page_id.page_no, page->data_, PAGE_SIZE);
+        disk_manager_->write_page(
+            page_id.fd,
+            page_id.page_no,
+            page->data_,
+            PAGE_SIZE
+        );
+        page->is_dirty_ = false;
     }
 
     // 在页表中删去旧的页面记录
     page_table_.erase(page->id_);
+    // 若不需要将 new_page_id 插入回页表
+    if (new_frame_id == INVALID_FRAME_ID)
+        return;
     // 重置 page data
-    disk_manager_->read_page(page_id.fd, page_id.page_no, page->data_, PAGE_SIZE);
+    try {
+        disk_manager_->read_page(
+            new_page_id.fd,
+            new_page_id.page_no,
+            page->data_,
+            PAGE_SIZE
+        );
+    } catch (RMDBError &e) {
+        // 新页面操作交给 new_page 完成
+    }
     // 更新page元数据
-    page->is_dirty_ = false;
     page->id_ = new_page_id;
-    // 在页表中更新新的页面记录
+    // 在页表中插入新的页面记录
     page_table_.emplace(new_page_id, new_frame_id);
 }
 
@@ -90,54 +101,40 @@ Page* BufferPoolManager::fetch_page(PageId page_id) {
     // 4.     固定目标页，更新pin_count_
     // 5.     返回目标页
 
-
-    // std::scoped_lock lock{latch_};
-
-    std::scoped_lock lock{page_table_latch_};
+    std::scoped_lock lock{latch_};
 
     // 尝试在 page table 中查找指定 PageId
-    const auto& page_table_record = page_table_.find(page_id);
+    const auto &target_page_record = page_table_.find(page_id);
     // 如果目标页有被页表记录，则将其所在frame固定，并返回目标页
-    if (page_table_record != page_table_.end()) {
+    if (target_page_record != page_table_.end()) {
         // 获得目标帧
-        auto target_frame_id = page_table_record->second;
+        auto target_frame_id = target_page_record->second;
         // 更新pin count
+        replacer_->pin(target_frame_id);
         pages_[target_frame_id].pin_count_ += 1;
         // 返回目标页
         return &pages_[target_frame_id];
     }
 
     // 目标页未被页表记录，调用find_victim_page获得一个可用的frame，若失败返回nullptr
-    frame_id_t victim_frame_id = 0;
+    frame_id_t victim_frame_id = INVALID_FRAME_ID;
     if (!find_victim_page(&victim_frame_id)) {
         // find_victim_page 失败
         return nullptr;
     }
 
     // 从find_victim_page中获得的frame对应的page
-    auto& target_page = pages_[victim_frame_id];
-    auto& target_pageid = target_page.id_;
+    auto &victim_page = pages_[victim_frame_id];
 
-    // 若获得的可用frame为dirty page, 则调用update_page将page写回磁盘
-    // update_page(&target_page, page_id, victim_frame_id); // update_page 方法中判断是否为脏页并更新page中的信息 并读取磁盘中的page替换原page
-    if (target_page.is_dirty_) {
-        disk_manager_->write_page(target_pageid.fd, target_pageid.page_no, target_page.data_, PAGE_SIZE);
-    }
-    // 将可用frame中的page从页表中删除
-    page_table_.erase(target_page.id_);
-    // 从磁盘中读取新page
-    disk_manager_->read_page(page_id.fd, page_id.page_no, target_page.data_, PAGE_SIZE);
-    // 将新页面加入页表
-    target_pageid = page_id;
-    page_table_.emplace(target_pageid, victim_frame_id);
-
+    // 更新victim frame
+    update_page(&victim_page, page_id, victim_frame_id);
 
     // 固定目标页 pin_count_置1
-    target_page.pin_count_ = 1;
     replacer_->pin(victim_frame_id);
+    victim_page.pin_count_ += 1;
 
     // 返回目标页
-    return &target_page;
+    return &victim_page;
 }
 
 /**
@@ -158,9 +155,7 @@ bool BufferPoolManager::unpin_page(PageId page_id, bool is_dirty) {
     // 2.2.1 若自减后等于0，则调用replacer_的Unpin
     // 3 根据参数is_dirty，更改P的is_dirty_
 
-    // std::scoped_lock lock{latch_};
-
-    std::scoped_lock lock{page_table_latch_};
+    std::scoped_lock lock{latch_};
 
     // 在页表中寻找page_id对应的页P
     auto target_page_record = page_table_.find(page_id);
@@ -171,23 +166,23 @@ bool BufferPoolManager::unpin_page(PageId page_id, bool is_dirty) {
     }
 
     // P 在页表中存在 获取其 pin_count_
-    auto target_frame = target_page_record->second;
-    auto &target_page = pages_[target_frame];
-    auto &target_pincount = target_page.pin_count_;
+    auto target_frame_id = target_page_record->second;
+    auto &target_page = pages_[target_frame_id];
+    auto &target_pin_count = target_page.pin_count_;
 
     // 若 pincount 已经等于 0 返回 false
     // 若 pincount 大于 0 则其 pincount 自减 1
     // 若自减后 pincount 等于 0 则调用 replacer_ unpin
-    if (target_pincount == 0) {
+    if (target_pin_count == 0) {
         return false;
     }
-    target_pincount -= 1;
-    if (target_pincount == 0) {
-        replacer_->unpin(target_frame);
+    target_pin_count -= 1;
+    if (target_pin_count == 0) {
+        replacer_->unpin(target_frame_id);
     }
 
-    // 根据参数 is_dirty 更改 P 的 is_dirty
-    target_page.is_dirty_ = is_dirty;
+    // 根据参数 is_dirty 更新 P 的 is_dirty
+    target_page.is_dirty_ |= is_dirty;
 
     return true;
 }
@@ -206,23 +201,26 @@ bool BufferPoolManager::flush_page(PageId page_id) {
     // 2. 无论P是否为脏都将其写回磁盘。
     // 3. 更新P的is_dirty_
 
-    // std::scoped_lock lock{latch_};
-
-    std::scoped_lock lock{page_table_latch_};
+    std::scoped_lock lock{latch_};
 
     // 查找页表,尝试获取目标页P缓冲
-    const auto& target_page_record = page_table_.find(page_id);
+    const auto &target_page_record = page_table_.find(page_id);
     if (target_page_record == page_table_.end()) {
         // 目标页P没有被page_table_记录 ，返回false
         return false;
     }
 
     // 获取对应帧和对应页
-    auto  target_frame = target_page_record->second;
-    auto& target_page  = pages_[target_frame];
+    auto target_frame_id = target_page_record->second;
+    auto &target_page = pages_[target_frame_id];
 
     // 无论P是否为脏都将其写回磁盘。
-    disk_manager_->write_page(page_id.fd, page_id.page_no, target_page.data_, PAGE_SIZE);
+    disk_manager_->write_page(
+        page_id.fd,
+        page_id.page_no,
+        target_page.data_,
+        PAGE_SIZE
+    );
 
     // 更新P的is_dirty_
     target_page.is_dirty_ = false;
@@ -242,41 +240,31 @@ Page* BufferPoolManager::new_page(PageId* page_id) {
     // 3.   将frame的数据写回磁盘
     // 4.   固定frame，更新pin_count_
     // 5.   返回获得的page
-    // std::scoped_lock lock{latch_};
 
-    std::scoped_lock lock{page_table_latch_};
+    std::scoped_lock lock{latch_};
+
     // 获得一个可用的frame，若无法获得则返回nullptr
-    frame_id_t target_frame_id = 0;
-    if (!find_victim_page(&target_frame_id)) {
+    frame_id_t victim_frame_id = INVALID_FRAME_ID;
+    if (!find_victim_page(&victim_frame_id)) {
         return nullptr;
     }
 
     // 从find_victim_page中获得的frame对应的page
-    auto& target_page = pages_[target_frame_id];
-    auto& target_pageid = target_page.id_;
-
-    // 若获得的可用frame为dirty page, 则调用update_page将page写回磁盘
-    if (target_page.is_dirty_ && target_pageid.page_no != INVALID_PAGE_ID) {
-        disk_manager_->write_page(target_pageid.fd, target_pageid.page_no, target_page.data_, PAGE_SIZE);
-    }
-    // 将可用frame中的page从页表中删除
-    page_table_.erase(target_pageid);
+    auto &victim_page = pages_[victim_frame_id];
 
     // 在fd对应的文件分配一个新的page_id
     page_id->page_no = disk_manager_->allocate_page(page_id->fd);
-    target_pageid = *page_id;
-
-    // // 从磁盘中读取新page
-    // disk_manager_->read_page(page_id->fd, page_id->page_no, target_page.data_, PAGE_SIZE);
+    // 更新 victim page
+    update_page(&victim_page, *page_id, victim_frame_id);
+    // 重置页面 标记必须写入磁盘 is_dirty_ = true
+    std::fill_n(victim_page.data_, PAGE_SIZE, 0);
+    victim_page.is_dirty_ = true;
 
     // 固定 frame，更新 pincount
-    replacer_->pin(target_frame_id);
-    pages_[target_frame_id].pin_count_ = 1;
+    replacer_->pin(victim_frame_id);
+    pages_[victim_frame_id].pin_count_ += 1;
 
-    // 加入页表
-    page_table_.emplace(target_pageid, target_frame_id);
-
-    return &target_page;
+    return &victim_page;
 }
 
 /**
@@ -289,8 +277,8 @@ bool BufferPoolManager::delete_page(PageId page_id) {
     // 1.   在page_table_中查找目标页，若不存在返回true
     // 2.   若目标页的pin_count不为0，则返回false
     // 3.   将目标页数据写回磁盘，从页表中删除目标页，重置其元数据，将其加入free_list_，返回true
-    
-    std::scoped_lock lock{page_table_latch_, free_list_latch_};
+
+    std::scoped_lock lock{latch_};
     // 在页表中查找目标页 若不存在 返回 true
     auto target_page_record = page_table_.find(page_id);
     if (target_page_record == page_table_.end()) {
@@ -299,7 +287,6 @@ bool BufferPoolManager::delete_page(PageId page_id) {
 
     auto target_frame = target_page_record->second;
     auto &target_page = pages_[target_frame];
-    auto &target_pageid = target_page.id_;
 
     // 若目标页的pincount不为0 返回false
     if (target_page.pin_count_ != 0) {
@@ -307,11 +294,7 @@ bool BufferPoolManager::delete_page(PageId page_id) {
     }
 
     // 将目标页写回磁盘 从业表中删除目标页 重置目标页元数据 将其加入 free_list_ 返回 true
-    disk_manager_->write_page(target_pageid.fd, target_pageid.page_no, target_page.data_, PAGE_SIZE);
-
-    page_table_.erase(target_page_record);
-
-    target_page.is_dirty_ = false;
+    update_page(&target_page, page_id, INVALID_FRAME_ID);
 
     free_list_.push_back(target_frame);
 
@@ -324,12 +307,17 @@ bool BufferPoolManager::delete_page(PageId page_id) {
  * @note 涉及临界资源 {page_table_, pages_}
  */
 void BufferPoolManager::flush_all_pages(int fd) {
-    // std::scoped_lock lock{latch_};
-    std::scoped_lock lock{page_table_latch_, pages_latch_};
+    std::scoped_lock lock{latch_};
     for (auto &[page_id, frame_id] : page_table_) {
         if (page_id.fd != fd)
             continue;
         auto &page = pages_[frame_id];
-        disk_manager_->write_page(fd, page_id.page_no, page.data_, PAGE_SIZE);
+        disk_manager_->write_page(
+            fd,
+            page_id.page_no,
+            page.data_,
+            PAGE_SIZE
+        );
+        page.is_dirty_ = false;
     }
 }

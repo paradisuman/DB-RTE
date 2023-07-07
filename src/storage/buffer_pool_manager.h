@@ -32,8 +32,8 @@ class BufferPoolManager {
     std::list<frame_id_t> free_list_;   // 空闲帧编号的链表
     DiskManager *disk_manager_;
     Replacer *replacer_;    // buffer_pool的置换策略，当前赛题中为LRU置换策略
-    // std::mutex latch_;      // 用于共享数据结构的并发控制
-    std::mutex page_table_latch_, free_list_latch_, pages_latch_;
+    std::mutex latch_;      // 用于共享数据结构的并发控制
+    // std::mutex page_table_latch_, free_list_latch_, pages_latch_;
     // std::array<std::mutex, BUFFER_POOL_SIZE> pages_latch_i_;
 
    public:
