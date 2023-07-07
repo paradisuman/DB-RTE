@@ -256,9 +256,9 @@ Page* BufferPoolManager::new_page(PageId* page_id) {
     page_id->page_no = disk_manager_->allocate_page(page_id->fd);
     // 更新 victim page
     update_page(&victim_page, *page_id, victim_frame_id);
-    // 重置页面 标记必须写入磁盘 is_dirty_ = true
-    std::fill_n(victim_page.data_, PAGE_SIZE, 0);
-    victim_page.is_dirty_ = true;
+    victim_page.reset_memory();
+    // // 重置页面 标记必须写入磁盘 is_dirty_ = true
+    // victim_page.is_dirty_ = true;
 
     // 固定 frame，更新 pincount
     replacer_->pin(victim_frame_id);
