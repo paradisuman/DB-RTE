@@ -122,6 +122,9 @@ private:
         } else if (auto x = std::dynamic_pointer_cast<IntLit>(node)) {
             std::cout << "INT_LIT\n";
             print_val(x->val, offset);
+        } else if (auto x = std::dynamic_pointer_cast<BigintLit>(node)) {
+            std::cout << "BIGINT_LIT\n";
+            print_val(x->val, offset);
         } else if (auto x = std::dynamic_pointer_cast<FloatLit>(node)) {
             std::cout << "FLOAT_LIT\n";
             print_val(x->val, offset);

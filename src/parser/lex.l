@@ -16,6 +16,7 @@
 #include "errors.h"
 #include "common/datetime_utils.hpp"
 #include <iostream>
+#include <string>
 
 // automatically update location
 #define YY_USER_ACTION \
@@ -104,25 +105,24 @@ single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
 {value_int} {
     static constexpr char int_max[] = "2147483647",
                           int_min[] = "2147483648";
-    size_t num_len = strlen(yytext);
+    const size_t num_len = strlen(yytext);
     // 返回 int
-    auto is_int = [&] () mutable {
+    auto is_int = [&] mutable {
         yylval->sv_int = atoi(yytext);
         return VALUE_INT;
     };
     // 返回 bigint
-    auto is_bigint = [&] () mutable {
+    auto is_bigint = [&] mutable {
         yylval->sv_bigint = std::stoll(yytext);
         return VALUE_BIGINT;
     };
 
     // 对于负数输入
     if (yytext[0] == '-') {
-        num_len += 1;
-        if (num_len < sizeof(int_min)) {
+        if (num_len - 1 < sizeof(int_min)) {
             // yytext 长度小于 int_min 最小值长度 说明为 int 类型
             return is_int();
-        } else if (num_len > sizeof(int_min)) {
+        } else if (num_len - 1 > sizeof(int_min)) {
             // yytext 长度大于 int_min 最小值长度 说明为 bigint 类型
             return is_bigint();
         } else {
@@ -135,11 +135,10 @@ single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
     }
     // 对于有正号的正数输入
     else if (yytext[0] == '+') {
-        num_len += 1;
-        if (num_len < sizeof(int_max)) {
+        if (num_len - 1 < sizeof(int_max)) {
             // yytext 长度小于 int_max 最小值长度 说明为 int 类型
             return is_int();
-        } else if (num_len > sizeof(int_max)) {
+        } else if (num_len - 1 > sizeof(int_max)) {
             // yytext 长度大于 int_min 最小值长度 说明为 bigint 类型
             return is_bigint();
         } else {
