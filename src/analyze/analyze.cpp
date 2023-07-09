@@ -63,11 +63,19 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
         check_clause(query->tables, query->conds);
     } else if (auto x = std::dynamic_pointer_cast<ast::UpdateStmt>(parse)) {
         /** TODO: */
+<<<<<<< HEAD
         const std::string tab_name = x->tab_name;
         // 检查表, 由于update只有一个table值, 所以只插入一个
         if ((sm_manager_->db_).is_table(tab_name) == false)
             throw TableNotFoundError(tab_name);
         query->tables.push_back(tab_name);
+=======
+        //检查表,由于update只有一个table值，所以只插入一个
+        query->tables.push_back(x->tab_name);
+        if ((sm_manager_->db_).is_table(query->tables[0]) != true) {
+            throw TableNotFoundError(query->tables[0]);
+        }
+>>>>>>> 955e721 (修改了column)
 
         // 处理set值 std::vector<SetClause> set_clauses;
         // x中sel_set：std::string col_name;  std::shared_ptr<Value> val;
@@ -130,6 +138,7 @@ TabCol Analyze::check_column(const std::vector<ColMeta> &all_cols, TabCol target
             throw ColumnNotFoundError(target.col_name);
         // 匹配到表名则设置 target.tab_name 为匹配到的表名
         target.tab_name = tab_name;
+<<<<<<< HEAD
         return target;
     }
     // 指定表 检查对应表中的列是否存在
@@ -142,6 +151,21 @@ TabCol Analyze::check_column(const std::vector<ColMeta> &all_cols, TabCol target
         }
         // 否则抛出异常
         throw ColumnNotFoundError(target.col_name);
+=======
+    } else {
+        /** TODO: Make sure target column exists */
+        // fix
+        bool flag = false;
+        for (auto &col : all_cols) {
+            if (col.name == target.col_name && col.tab_name == target.tab_name) {
+                flag = true;
+                break;
+            }
+        }
+        if(flag == false){
+            throw ColumnNotFoundError(target.col_name);
+        }
+>>>>>>> 955e721 (修改了column)
     }
 }
 
