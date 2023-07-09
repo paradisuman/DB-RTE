@@ -35,12 +35,12 @@ bool LRUReplacer::victim(frame_id_t* frame_id) {
         return false;
     }
 
-    // 最少被访问的frame位于链表头部
-    *frame_id = LRUlist_.front();
+    // 最少被访问的frame位于链表尾部
+    *frame_id = LRUlist_.back();
 
     // 移除链表中的尾部元素，并在哈希表中移除对应的项
     LRUhash_.erase(*frame_id);
-    LRUlist_.pop_front();
+    LRUlist_.pop_back();
 
     return true;
 }
@@ -82,9 +82,9 @@ void LRUReplacer::unpin(frame_id_t frame_id) {
     // 若不存在则在数据结构中和在LRU链表中添加
     if(it == LRUhash_.end()) {
         // 将frame添加到链表的尾部
-        LRUlist_.push_back(frame_id);
+        LRUlist_.push_front(frame_id);
         // 在hash表中存储该frame和其在链表中的位置
-        LRUhash_[frame_id] = std::prev(LRUlist_.end());
+        LRUhash_[frame_id] = LRUlist_.begin());
     }
 }
 
