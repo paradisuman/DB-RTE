@@ -33,13 +33,6 @@ void DiskManager::write_page(int fd, page_id_t page_no, const char *offset, int 
     if (pos == -1) {
         throw UnixError();
     }
-
-    // 尝试定位到指定页面
-    off_t pos = lseek(fd, page_no * PAGE_SIZE, SEEK_SET);
-    if (pos == -1) {
-        throw UnixError();
-    }
-
     // write返回值与num_bytes不等时 throw InternalError("DiskManager::write_page Error");
     ssize_t write_size = write(fd, offset, num_bytes);
     if (write_size != num_bytes) {
@@ -138,9 +131,6 @@ void DiskManager::create_file(const std::string &path) {
             throw UnixError();
         }
     } else {
-        // 成功创建文件 将文件描述符加入map
-        path2fd_[path] = fd;
-        fd2path_[fd] = path;
         // 成功创建文件 关闭文件
         close(fd);
     }
@@ -179,12 +169,6 @@ void DiskManager::destroy_file(const std::string &path) {
  * @param {string} &path 文件所在路径
  */
 int DiskManager::open_file(const std::string &path) {
-    if (path2fd_.find(path) != path2fd_.end()) {
-        throw FileNotClosedError(path);
-    }
-    // 打开文件
-    int fd = open(path.c_str(), O_RDWR);
-
     if (path2fd_.find(path) != path2fd_.end()) {
         throw FileNotClosedError(path);
     }

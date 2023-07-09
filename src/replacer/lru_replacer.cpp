@@ -64,7 +64,6 @@ void LRUReplacer::pin(frame_id_t frame_id) {
         LRUhash_.erase(it);  // 在 map 中移除这个 frame
     }
 }
-}
 
 
 /**

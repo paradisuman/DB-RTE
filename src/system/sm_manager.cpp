@@ -215,14 +215,15 @@ void SmManager::create_table(const std::string& tab_name, const std::vector<ColD
  * @param {Context*} context
  */
 void SmManager::drop_table(const std::string& tab_name, Context* context) {
-    if (db_.is_table(tab_name)) {
-        throw TableExistsError(tab_name);
+    if (!db_.is_table(tab_name)) {
+        throw TableNotFoundError(tab_name);
     }
 
     //先删除db_中的表，再删除文件表，最后删除fhs_中的表
     db_.tabs_.erase(tab_name);
-    rm_manager_->destroy_file(tab_name);
     fhs_.erase(tab_name);
+    rm_manager_->close_file(tab_name);
+    rm_manager_->destroy_file(tab_name);
 
     // TODO: 删除表索引
 

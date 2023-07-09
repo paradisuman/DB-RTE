@@ -305,7 +305,7 @@ void BufferPoolManager::flush_all_pages(int fd) {
     for (const auto &[page_id, frame_id] : page_table_) {
         if (page_id.fd != fd)
             continue;
-        const auto &page = pages_[frame_id];
+        auto &page = pages_[frame_id];
         disk_manager_->write_page(
             fd,
             page_id.page_no,
@@ -328,7 +328,7 @@ void BufferPoolManager::flush_all_page() {
         if (!page.is_dirty_)
             continue;
         disk_manager_->write_page(
-            fd,
+            page_id.fd,
             page_id.page_no,
             page.data_,
             PAGE_SIZE
