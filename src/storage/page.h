@@ -25,7 +25,7 @@ struct PageId {
         return page_no < x.page_no;
     }
 
-    std::string toString() {
+    std::string toString() const {
         return "{fd: " + std::to_string(fd) + " page_no: " + std::to_string(page_no) + "}"; 
     }
 
@@ -86,5 +86,5 @@ class Page {
     bool is_dirty_ = false;
 
     /** The pin count of this page. */
-    int pin_count_ = 0;
+    std::atomic<int> pin_count_ = 0;
 };
