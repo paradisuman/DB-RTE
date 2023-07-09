@@ -14,6 +14,8 @@ See the Mulan PSL v2 for more details. */
 
 #include <memory>
 
+#include <algorithm>
+
 #include "bitmap.h"
 #include "common/context.h"
 #include "rm_defs.h"

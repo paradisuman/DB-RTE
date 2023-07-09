@@ -14,12 +14,11 @@ See the Mulan PSL v2 for more details. */
 #include <string.h>    // for memset
 #include <sys/stat.h>  // for stat
 #include <unistd.h>    // for lseek
-
-#include <fcntl.h>     // for O_CREAT, O_WRONLY, etc
+#include <algorithm>
 
 #include "defs.h"
 
-DiskManager::DiskManager() { std::fill_n(fd2pageno_, 0, MAX_FD); }
+DiskManager::DiskManager() { std::fill_n(fd2pageno_, MAX_FD, 0); }
 
 /**
  * @description: 将数据写入文件的指定磁盘页面中
@@ -29,6 +28,12 @@ DiskManager::DiskManager() { std::fill_n(fd2pageno_, 0, MAX_FD); }
  * @param {int} num_bytes 要写入磁盘的数据大小
  */
 void DiskManager::write_page(int fd, page_id_t page_no, const char *offset, int num_bytes) {
+    // 尝试定位到指定页面
+    off_t pos = lseek(fd, page_no * PAGE_SIZE, SEEK_SET);
+    if (pos == -1) {
+        throw UnixError();
+    }
+
     // 尝试定位到指定页面
     off_t pos = lseek(fd, page_no * PAGE_SIZE, SEEK_SET);
     if (pos == -1) {
@@ -50,6 +55,11 @@ void DiskManager::write_page(int fd, page_id_t page_no, const char *offset, int 
  * @param {int} num_bytes 读取的数据量大小
  */
 void DiskManager::read_page(int fd, page_id_t page_no, char *offset, int num_bytes) {
+    // Todo:
+    // 1.lseek()定位到文件头，通过(fd,page_no)可以定位指定页面及其在磁盘文件中的偏移量
+    // 2.调用read()函数
+    // 注意read返回值与num_bytes不等时，throw InternalError("DiskManager::read_page Error");
+
     // 尝试定位到指定位置
     off_t pos = lseek(fd, page_no * PAGE_SIZE, SEEK_SET);
     if (pos == -1) {
@@ -113,6 +123,10 @@ bool DiskManager::is_file(const std::string &path) {
  * @param {string} &path
  */
 void DiskManager::create_file(const std::string &path) {
+    // Todo:
+    // 调用open()函数，使用O_CREAT模式
+    // 注意不能重复创建相同文件
+
     // 以读写模式打开文件，如果文件不存在则创建
     int fd = open(path.c_str(), O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
 
@@ -127,6 +141,8 @@ void DiskManager::create_file(const std::string &path) {
         // 成功创建文件 将文件描述符加入map
         path2fd_[path] = fd;
         fd2path_[fd] = path;
+        // 成功创建文件 关闭文件
+        close(fd);
     }
 }
 
@@ -140,11 +156,19 @@ void DiskManager::destroy_file(const std::string &path) {
         throw FileNotClosedError(path);
     }
     // 调用unlink()函数
+    // 注意不能删除未关闭的文件
+
+    // 判断文件是否已经关闭
+    if (path2fd_.find(path) != path2fd_.end()) {
+        throw FileNotClosedError(path);
+    }
+    // 调用unlink()函数
     int result = unlink(path.c_str());
 
     // 检查unlink()函数的返回值，了解操作是否成功
     if (result != 0) {
-        throw UnixError();
+        throw FileNotFoundError(path);
+        // throw UnixError();
     }
 }
 
@@ -155,6 +179,12 @@ void DiskManager::destroy_file(const std::string &path) {
  * @param {string} &path 文件所在路径
  */
 int DiskManager::open_file(const std::string &path) {
+    if (path2fd_.find(path) != path2fd_.end()) {
+        throw FileNotClosedError(path);
+    }
+    // 打开文件
+    int fd = open(path.c_str(), O_RDWR);
+
     if (path2fd_.find(path) != path2fd_.end()) {
         throw FileNotClosedError(path);
     }
@@ -185,10 +215,11 @@ void DiskManager::close_file(int fd) {
     // Todo:
     // 调用close()函数
     // 注意不能关闭未打开的文件，并且需要更新文件打开列表
-    // 判断文件是否已经打开
+
     if (fd2path_.find(fd) == fd2path_.end()) {
         throw FileNotOpenError(fd);
     }
+    close(fd);
     // 在path2fd_中删除打开记录
     path2fd_.erase(fd2path_[fd]);
     // 在fd2path_中删除打开记录

@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include <list>
 #include <unordered_map>
 #include <vector>
+#include <array>
 
 #include "disk_manager.h"
 #include "errors.h"
@@ -32,6 +33,8 @@ class BufferPoolManager {
     DiskManager *disk_manager_;
     Replacer *replacer_;    // buffer_pool的置换策略，当前赛题中为LRU置换策略
     std::mutex latch_;      // 用于共享数据结构的并发控制
+    // std::mutex page_table_latch_, free_list_latch_, pages_latch_;
+    // std::array<std::mutex, BUFFER_POOL_SIZE> pages_latch_i_;
 
    public:
     BufferPoolManager(size_t pool_size, DiskManager *disk_manager)
