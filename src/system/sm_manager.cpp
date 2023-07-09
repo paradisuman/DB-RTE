@@ -46,8 +46,7 @@ void SmManager::create_db(const std::string& db_name) {
         throw UnixError();
     }
     //创建系统目录
-    DbMeta *new_db = new DbMeta();
-    new_db->name_ = db_name;
+    DbMeta *new_db = new DbMeta(db_name);
 
     // 注意，此处ofstream会在当前目录创建(如果没有此文件先创建)和打开一个名为DB_META_NAME的文件
     std::ofstream ofs(DB_META_NAME);
@@ -92,10 +91,17 @@ void SmManager::open_db(const std::string& db_name) {
         throw UnixError();
     }
 
-    std::ifstream ifs(DB_META_NAME);
-    if (!(ifs >> this->db_)) {
-        throw UnixError();
+    std::ifstream(DB_META_NAME) >> db_; // 加载数据库元数据
+
+    // 加载数据库表文件
+    for (const auto &[tab_name, _] : db_.tabs_) {
+        fhs_.emplace(
+            tab_name,
+            rm_manager_->open_file(tab_name)
+        );
     }
+
+    // TODO: 加载数据索引文件
 }
 
 /**
@@ -112,6 +118,12 @@ void SmManager::flush_meta() {
  */
 void SmManager::close_db() {
     flush_meta();
+    // 刷新全部脏页
+    buffer_pool_manager_->flush_all_page();
+
+    // 清空记录
+    fhs_.clear();
+    ihs_.clear();
 
     // 回到根目录
     if (chdir("..") < 0) {
@@ -175,23 +187,23 @@ void SmManager::create_table(const std::string& tab_name, const std::vector<ColD
     }
     // Create table meta
     int curr_offset = 0;
-    TabMeta tab;
-    tab.name = tab_name;
-    for (auto &col_def : col_defs) {
+    TabMeta tab(tab_name);
+    for (const auto &col_def : col_defs) {
         ColMeta col = {.tab_name = tab_name,
-                       .name = col_def.name,
-                       .type = col_def.type,
-                       .len = col_def.len,
-                       .offset = curr_offset,
-                       .index = false};
+                       .name     = col_def.name,
+                       .type     = col_def.type,
+                       .len      = col_def.len,
+                       .offset   = curr_offset,
+                       .index    = false};
         curr_offset += col_def.len;
         tab.cols.push_back(col);
     }
     // Create & open record file
     int record_size = curr_offset;  // record_size就是col meta所占的大小（表的元数据也是以记录的形式进行存储的）
     rm_manager_->create_file(tab_name, record_size);
-    db_.tabs_[tab_name] = tab;
+    // db_.tabs_[tab_name] = tab;
     // fhs_[tab_name] = rm_manager_->open_file(tab_name);
+    db_.tabs_.emplace(tab_name, tab);
     fhs_.emplace(tab_name, rm_manager_->open_file(tab_name));
 
     flush_meta();
@@ -211,6 +223,8 @@ void SmManager::drop_table(const std::string& tab_name, Context* context) {
     db_.tabs_.erase(tab_name);
     rm_manager_->destroy_file(tab_name);
     fhs_.erase(tab_name);
+
+    // TODO: 删除表索引
 
     flush_meta();
 }

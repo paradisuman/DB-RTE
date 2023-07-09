@@ -302,10 +302,31 @@ bool BufferPoolManager::delete_page(PageId page_id) {
  */
 void BufferPoolManager::flush_all_pages(int fd) {
     std::scoped_lock lock{latch_};
-    for (auto &[page_id, frame_id] : page_table_) {
+    for (const auto &[page_id, frame_id] : page_table_) {
         if (page_id.fd != fd)
             continue;
+        const auto &page = pages_[frame_id];
+        disk_manager_->write_page(
+            fd,
+            page_id.page_no,
+            page.data_,
+            PAGE_SIZE
+        );
+        page.is_dirty_ = false;
+    }
+}
+
+/**
+ * @description: 将所有buffer_pool中全部脏页写入磁盘
+ * @note 涉及临界资源 {page_table_, pages_}
+ */
+void BufferPoolManager::flush_all_page() {
+    std::scoped_lock lock{latch_};
+    for (const auto &[page_id, frame_id] : page_table_) {
         auto &page = pages_[frame_id];
+        // 只对脏页进行刷新
+        if (!page.is_dirty_)
+            continue;
         disk_manager_->write_page(
             fd,
             page_id.page_no,
