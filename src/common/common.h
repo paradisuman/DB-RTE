@@ -81,7 +81,7 @@ struct Value {
             assert(len == sizeof(float));
             float_val = *(float *)(data);
         } else if (type == TYPE_STRING) {
-            if (len < (int)str_val.size()) {
+            if (len < str_val.size()) {
                 throw StringOverflowError();
             }
             str_val = std::string(data, len);
@@ -110,7 +110,7 @@ const std::vector<std::set<ColType>> legal_binop = {
     /* [TYPE_STRING]  = */ {TYPE_STRING},
 };
 
-bool binop(const CompOp op, const Value &lval, const Value &rval) {
+inline bool binop(const CompOp op, const Value &lval, const Value &rval) {
     auto _binop = [&] (auto t1, auto t2) {
         switch (op) {
             case OP_EQ : return t1 == t2;
@@ -119,6 +119,7 @@ bool binop(const CompOp op, const Value &lval, const Value &rval) {
             case OP_GT : return t1 >  t2;
             case OP_LE : return t1 <= t2;
             case OP_GE : return t1 >= t2;
+            default    : throw InternalError("Invalid operand.");
         }
     };
 
@@ -131,6 +132,7 @@ bool binop(const CompOp op, const Value &lval, const Value &rval) {
             case OP_GT : return _strcmp >  0;
             case OP_LE : return _strcmp <= 0;
             case OP_GE : return _strcmp >= 0;
+            default    : throw InternalError("Invalid operand.");
         }
     };
 
@@ -138,11 +140,14 @@ bool binop(const CompOp op, const Value &lval, const Value &rval) {
         case TYPE_INT : switch (rval.type) {
                             case TYPE_INT   : return _binop(lval.int_val, rval.int_val);
                             case TYPE_FLOAT : return _binop(lval.int_val, rval.float_val);
+                            default         : throw IncompatibleTypeError("", "");
                         }
         case TYPE_FLOAT : switch (rval.type) {
                             case TYPE_INT   : return _binop(lval.float_val, rval.int_val);
                             case TYPE_FLOAT : return _binop(lval.float_val, rval.float_val);
+                            default         : throw IncompatibleTypeError("", "");
                         }
         case TYPE_STRING : return _str_binop(lval.str_val, rval.str_val);
+        default : throw IncompatibleTypeError("", "");
     }
 }
