@@ -110,6 +110,10 @@ const std::vector<std::set<ColType>> legal_binop = {
     /* [TYPE_STRING]  = */ {TYPE_STRING},
 };
 
+inline bool is_legal_binary_expr(const ColType a, const ColType b) {
+    return legal_binop.at(a).count(b) != 0;
+}
+
 inline bool binop(const CompOp op, const Value &lval, const Value &rval) {
     auto _binop = [&] (auto t1, auto t2) {
         switch (op) {

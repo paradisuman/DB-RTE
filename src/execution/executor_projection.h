@@ -14,6 +14,8 @@ See the Mulan PSL v2 for more details. */
 #include "executor_abstract.h"
 #include "index/ix.h"
 #include "system/sm.h"
+#include <algorithm>
+#include "executor_seq_scan.h"
 
 class ProjectionExecutor : public AbstractExecutor {
    private:
@@ -27,7 +29,7 @@ class ProjectionExecutor : public AbstractExecutor {
         prev_ = std::move(prev);
 
         size_t curr_offset = 0;
-        auto &prev_cols = prev_->cols();
+        const auto &prev_cols = prev_->cols();
         for (auto &sel_col : sel_cols) {
             auto pos = get_col(prev_cols, sel_col);
             sel_idxs_.push_back(pos - prev_cols.begin());
@@ -39,13 +41,35 @@ class ProjectionExecutor : public AbstractExecutor {
         len_ = curr_offset;
     }
 
-    void beginTuple() override {}
+    virtual const std::vector<ColMeta> &cols() const override { return cols_; }
 
-    void nextTuple() override {}
+    void beginTuple() override {
+        prev_->beginTuple();
+    }
+
+    void nextTuple() override {
+        prev_->nextTuple();
+    }
 
     std::unique_ptr<RmRecord> Next() override {
-        return nullptr;
+        // Make record buffer
+        auto result = std::make_unique<RmRecord>(len_);
+        auto prev_next = prev_->Next();
+        for (const auto &col : cols_) {
+            Value col_val;
+            col_val.type = col.type;
+            const auto &prev_cols = prev_->cols();
+            const auto &raw_col = *std::find_if(
+                prev_cols.begin(),
+                prev_cols.end(),
+                [&] (const auto &prev_col) { return col.name == prev_col.name; }
+            );
+            std::copy_n(prev_next->data + raw_col.offset, col.len, result->data + col.offset);
+        }
+        return result;
     }
+
+    bool is_end() const override { return prev_->is_end(); }
 
     Rid &rid() override { return _abstract_rid; }
 };
