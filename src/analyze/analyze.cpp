@@ -18,69 +18,77 @@ See the Mulan PSL v2 for more details. */
 std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
 {
     std::shared_ptr<Query> query = std::make_shared<Query>();
-    if (auto x = std::dynamic_pointer_cast<ast::SelectStmt>(parse))
-    {
+
+    if (auto x = std::dynamic_pointer_cast<ast::SelectStmt>(parse)) {
         // 处理表名
         query->tables = std::move(x->tabs);
         /** TODO: 检查表是否存在 */
-        //遍历检查所有tables
-        for (size_t i = 0; i < query->tables.size(); ++i) {
-            if((sm_manager_->db_).is_table(query->tables[i]) != true) {
-                throw TableNotFoundError(query->tables[i]);
-            }
+        // 遍历检查所有tables
+        for (const auto &query_table : query->tables) {
+            if (!(sm_manager_->db_).is_table(query_table))
+                throw TableNotFoundError(query_table);
         }
 
-        // 处理target list，再target list中添加上表名，例如 a.id
-        for (auto &sv_sel_col : x->cols) {
-            TabCol sel_col = {.tab_name = sv_sel_col->tab_name, .col_name = sv_sel_col->col_name};
-            query->cols.push_back(sel_col);
+        query->cols.reserve(x->cols.size());
+        // 处理target list, 再target list中添加上表名，例如 a.id
+        for (const auto &sv_sel_col : x->cols) {
+            query->cols.push_back(TabCol {
+                .tab_name = sv_sel_col->tab_name,
+                .col_name = sv_sel_col->col_name,
+            });
         }
-        
+
+        // 获得参与的表中所有的列
         std::vector<ColMeta> all_cols;
         get_all_cols(query->tables, all_cols);
+
+        // 若语句中未指定列 将所有列加入
         if (query->cols.empty()) {
             // select all columns
-            for (auto &col : all_cols) {
-                TabCol sel_col = {.tab_name = col.tab_name, .col_name = col.name};
-                query->cols.push_back(sel_col);
+            for (const auto &col : all_cols) {
+                query->cols.push_back(TabCol {
+                    .tab_name = col.tab_name,
+                    .col_name = col.name,
+                });
             }
-        } else {
+        }
+        // 若语句中指定了具体列 检查指定列是否存在
+        else {
             // infer table name from column name
-            for (auto &sel_col : query->cols) {
+            for (auto &sel_col : query->cols)
                 sel_col = check_column(all_cols, sel_col);  // 列元数据校验
-            }
         }
         //处理where条件
         get_clause(x->conds, query->conds);
         check_clause(query->tables, query->conds);
     } else if (auto x = std::dynamic_pointer_cast<ast::UpdateStmt>(parse)) {
         /** TODO: */
-        //检查表,由于update只有一个table值，所以只插入一个
-        query->tables.push_back(x->tab_name);
-        if ((sm_manager_->db_).is_table(query->tables[0]) != true) {
-                throw TableNotFoundError(query->tables[0]);
-        }
+        const std::string tab_name = x->tab_name;
+        // 检查表, 由于update只有一个table值, 所以只插入一个
+        if ((sm_manager_->db_).is_table(tab_name) == false)
+            throw TableNotFoundError(tab_name);
+        query->tables.push_back(tab_name);
 
-        //处理set值 std::vector<SetClause> set_clauses;
-        //x中sel_set：std::string col_name;  std::shared_ptr<Value> val;
-        //要转换的sel_set： TabCol lhs;  Value rhs;
-        TabMeta table = sm_manager_->db_.get_table(query->tables[0]);
-        for (auto &_set : x->set_clauses) {
-            SetClause sel_set;
-            TabCol sel_col = { .tab_name = query->tables[0], .col_name = _set->col_name};
-            //检查列是否在表中
-            if (!table.is_col(_set->col_name)) {
-                throw ColumnNotFoundError(_set->col_name);
-            }
-            //类型检查以及类型设置
-            ColType lhs_type = (table.get_col(_set->col_name))->type;
-            ColType rhs_type;
-            Value val = convert_sv_value(_set->val);
-            rhs_type = val.type;
+        // 处理set值 std::vector<SetClause> set_clauses;
+        // x中sel_set：std::string col_name;  std::shared_ptr<Value> val;
+        // 要转换的sel_set： TabCol lhs;  Value rhs;
+        TabMeta table = (sm_manager_->db_).get_table(tab_name);
+        for (auto &set_clause : x->set_clauses) {
+            TabCol sel_col = {
+                .tab_name = tab_name,
+                .col_name = set_clause->col_name,
+            };
+            // 检查列是否在表中 不在则抛出异常
+            if (!table.is_col(set_clause->col_name))
+                throw ColumnNotFoundError(set_clause->col_name);
+            // 类型检查以及类型设置
+            Value val = convert_sv_value(set_clause->val);
+            ColType lhs_type = table.get_col(set_clause->col_name)->type;
+            ColType rhs_type = val.type;
             if (lhs_type != rhs_type) {
                 throw IncompatibleTypeError(coltype2str(lhs_type), coltype2str(rhs_type));
             }
-            query->set_clauses.push_back({sel_col, val});
+            query->set_clauses.push_back(SetClause {sel_col, val});
         }
 
         //处理where条件
@@ -104,41 +112,41 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
 
 
 TabCol Analyze::check_column(const std::vector<ColMeta> &all_cols, TabCol target) {
+    // 未指定表 遍历所有表的所有列中 确定指定列存在且唯一
     if (target.tab_name.empty()) {
         // Table name not specified, infer table name from column name
         std::string tab_name;
-        for (auto &col : all_cols) {
+        for (const auto &col : all_cols) {
             if (col.name == target.col_name) {
-                if (!tab_name.empty()) {
+                // 非首次匹配表明 抛出异常
+                if (!tab_name.empty())
                     throw AmbiguousColumnError(target.col_name);
-                }
+                // 首次匹配到列名 记录表名
                 tab_name = col.tab_name;
             }
         }
-        if (tab_name.empty()) {
+        // 未匹配到表名 列不存在
+        if (tab_name.empty())
             throw ColumnNotFoundError(target.col_name);
-        }
+        // 匹配到表名则设置 target.tab_name 为匹配到的表名
         target.tab_name = tab_name;
-    } else {
-        /** TODO: Make sure target column exists */
-        std::string tab_name;
-        for (auto &col : all_cols) {
-            if (col.name == target.col_name) {
-                if (!tab_name.empty()) {
-                    throw AmbiguousColumnError(target.col_name);
-                }
-                tab_name = col.tab_name;
-            }
-        }
-        if (tab_name.empty()) {
-            throw ColumnNotFoundError(target.col_name);
-        }
+        return target;
     }
-    return target;
+    // 指定表 检查对应表中的列是否存在
+    else {
+        /** TODO: Make sure target column exists */
+        for (const auto &col : all_cols) {
+            // 匹配到表名列名相同的字段则返回
+            if (col.tab_name == target.tab_name && col.name == target.col_name)
+                return target;
+        }
+        // 否则抛出异常
+        throw ColumnNotFoundError(target.col_name);
+    }
 }
 
 void Analyze::get_all_cols(const std::vector<std::string> &tab_names, std::vector<ColMeta> &all_cols) {
-    for (auto &sel_tab_name : tab_names) {
+    for (const auto &sel_tab_name : tab_names) {
         // 这里db_不能写成get_db(), 注意要传指针
         const auto &sel_tab_cols = sm_manager_->db_.get_table(sel_tab_name).cols;
         all_cols.insert(all_cols.end(), sel_tab_cols.begin(), sel_tab_cols.end());

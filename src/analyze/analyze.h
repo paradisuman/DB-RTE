@@ -32,10 +32,10 @@ class Query{
     std::vector<std::string> tables;
     // update 的set 值
     std::vector<SetClause> set_clauses;
-    //insert 的values值
+    // insert 的values值
     std::vector<Value> values;
 
-    Query(){}
+    Query() {}
 
 };
 
