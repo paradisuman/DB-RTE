@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "executor_abstract.h"
 #include "index/ix.h"
 #include "system/sm.h"
+#include <algorithm>
 
 class SeqScanExecutor : public AbstractExecutor {
    private:
@@ -46,16 +47,56 @@ class SeqScanExecutor : public AbstractExecutor {
     }
 
     void beginTuple() override {
-        
+        scan_ = std::make_unique<RmScan>(fh_);
+        nextTuple();
     }
 
     void nextTuple() override {
-        
+        while (!scan_->is_end()) {
+            // 转向下一条记录
+            scan_->next();
+            // 获得记录
+            const auto record = fh_->get_record(scan_->rid(), context_);
+            // 检定当前记录是否符合全部条件
+            for (const auto &cond : conds_) {
+                const auto &lcol = *std::find_if(
+                    cols_.begin(),
+                    cols_.end(),
+                    [&] (const auto &col) { return cond.lhs_col.col_name == col.name; }
+                );
+                // 从记录中读取左值
+                Value lval;
+                lval.type = lcol.type;
+                lval.load_raw(lcol.len, record->data + lcol.offset);
+                // 准备右值
+                Value rval;
+                if (cond.is_rhs_val) {
+                    // 若右值为常量
+                    rval = cond.rhs_val;
+                } else {
+                    // 若右值为表中值
+                    const auto &rcol = *std::find_if(
+                        cols_.begin(),
+                        cols_.end(),
+                        [&] (const auto &col) { return cond.rhs_col.col_name == col.name; }
+                    );
+                    rval.type = rcol.type;
+                    rval.load_raw(rcol.len, record->data + rcol.offset);
+                }
+                // 二元检定
+                if (!binop(cond.op, lval, rval))
+                    continue;
+            }
+            // 通过了全部 conds 则结束
+            return;
+        }
     }
 
     std::unique_ptr<RmRecord> Next() override {
-        return nullptr;
+        return fh_->get_record(rid_, context_);
     }
+
+    bool is_end() const override { return scan_->is_end(); }
 
     Rid &rid() override { return rid_; }
 };

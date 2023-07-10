@@ -58,13 +58,13 @@ class Portal
     // 将查询执行计划转换成对应的算子树
     std::shared_ptr<PortalStmt> start(std::shared_ptr<Plan> plan, Context *context)
     {
-        // 这里可以将select进行拆分，例如：一个select，带有return的select等
         if (auto x = std::dynamic_pointer_cast<OtherPlan>(plan)) {
             return std::make_shared<PortalStmt>(PORTAL_CMD_UTILITY, std::vector<TabCol>(), std::unique_ptr<AbstractExecutor>(),plan);
         } else if (auto x = std::dynamic_pointer_cast<DDLPlan>(plan)) {
             return std::make_shared<PortalStmt>(PORTAL_MULTI_QUERY, std::vector<TabCol>(), std::unique_ptr<AbstractExecutor>(),plan);
         } else if (auto x = std::dynamic_pointer_cast<DMLPlan>(plan)) {
             switch(x->tag) {
+                // 这里可以将select进行拆分，例如：一个select，带有return的select等
                 case T_select:
                 {
                     std::shared_ptr<ProjectionPlan> p = std::dynamic_pointer_cast<ProjectionPlan>(x->subplan_);

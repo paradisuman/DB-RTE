@@ -24,40 +24,17 @@ bool LRUReplacer::victim(frame_id_t* frame_id) {
     // 它能够避免死锁发生，其构造函数能够自动进行上锁操作，析构函数会对互斥量进行解锁操作，保证线程安全。
     // std::scoped_lock lock{latch_};  //  如果编译报错可以替换成其他lock
 
+    // Todo:
+    //  利用lru_replacer中的LRUlist_,LRUHash_实现LRU策略
+    //  选择合适的frame指定为淘汰页面,赋值给*frame_id
+
+    std::scoped_lock lock{latch_};
+
     if (LRUlist_.empty()) {  // 如果LRU列表为空，那么就没有页面可以淘汰，返回false
-        frame_id = nullptr;
         return false;
     }
 
     // 最少被访问的frame位于链表头部
-    *frame_id = LRUlist_.front();
-
-    // 移除链表中的尾部元素，并在哈希表中移除对应的项
-    LRUhash_.erase(*frame_id);
-    LRUlist_.pop_front();
-
-    std::scoped_lock lock{latch_};
-
-    if (LRUlist_.empty()) {  // 如果LRU列表为空，那么就没有页面可以淘汰，返回false
-        frame_id = nullptr;
-        return false;
-    }
-
-    // 最少被访问的frame位于链表尾部
-    *frame_id = LRUlist_.back();
-
-    // 移除链表中的尾部元素，并在哈希表中移除对应的项
-    LRUhash_.erase(*frame_id);
-    LRUlist_.pop_back();
-
-    std::scoped_lock lock{latch_};
-
-    if (LRUlist_.empty()) {  // 如果LRU列表为空，那么就没有页面可以淘汰，返回false
-        frame_id = nullptr;
-        return false;
-    }
-
-    // 最少被访问的frame位于链表尾部
     *frame_id = LRUlist_.back();
 
     // 移除链表中的尾部元素，并在哈希表中移除对应的项
@@ -108,7 +85,7 @@ void LRUReplacer::unpin(frame_id_t frame_id) {
         // 将frame添加到链表的尾部
         LRUlist_.push_front(frame_id);
         // 在hash表中存储该frame和其在链表中的位置
-        LRUhash_[frame_id] = LRUlist_.begin());
+        LRUhash_[frame_id] = LRUlist_.begin();
     }
 }
 
