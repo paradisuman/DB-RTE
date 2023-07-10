@@ -28,11 +28,17 @@ DiskManager::DiskManager() { std::fill_n(fd2pageno_, MAX_FD, 0); }
  * @param {int} num_bytes 要写入磁盘的数据大小
  */
 void DiskManager::write_page(int fd, page_id_t page_no, const char *offset, int num_bytes) {
+    // Todo:
+    // 1.lseek()定位到文件头，通过(fd,page_no)可以定位指定页面及其在磁盘文件中的偏移量
+    // 2.调用write()函数
+    // 注意write返回值与num_bytes不等时 throw InternalError("DiskManager::write_page Error");
+
     // 尝试定位到指定页面
     off_t pos = lseek(fd, page_no * PAGE_SIZE, SEEK_SET);
     if (pos == -1) {
         throw UnixError();
     }
+
     // write返回值与num_bytes不等时 throw InternalError("DiskManager::write_page Error");
     ssize_t write_size = write(fd, offset, num_bytes);
     if (write_size != num_bytes) {
@@ -141,10 +147,7 @@ void DiskManager::create_file(const std::string &path) {
  * @param {string} &path 文件所在路径
  */
 void DiskManager::destroy_file(const std::string &path) {
-    // 判断文件是否已经关闭
-    if (path2fd_.find(path) != path2fd_.end()) {
-        throw FileNotClosedError(path);
-    }
+    // Todo:
     // 调用unlink()函数
     // 注意不能删除未关闭的文件
 
@@ -169,6 +172,10 @@ void DiskManager::destroy_file(const std::string &path) {
  * @param {string} &path 文件所在路径
  */
 int DiskManager::open_file(const std::string &path) {
+    // Todo:
+    // 调用open()函数，使用O_RDWR模式
+    // 注意不能重复打开相同文件，并且需要更新文件打开列表
+
     if (path2fd_.find(path) != path2fd_.end()) {
         throw FileNotClosedError(path);
     }
