@@ -95,7 +95,14 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
         get_clause(x->conds, query->conds);
         check_clause(query->tables, query->conds);
     } else if (auto x = std::dynamic_pointer_cast<ast::DeleteStmt>(parse)) {
-        //处理where条件
+        // 处理表名
+        const std::string tab_name = x->tab_name;
+        // 检查表是否存在
+        if ((sm_manager_->db_).is_table(tab_name) == false)
+            throw TableNotFoundError(tab_name);
+        query->tables.push_back(tab_name);
+
+        // 处理where条件
         get_clause(x->conds, query->conds);
         check_clause({x->tab_name}, query->conds);        
     } else if (auto x = std::dynamic_pointer_cast<ast::InsertStmt>(parse)) {

@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wall -O0 -g -ggdb3 CMakeFiles/test_storage.dir/test_storage.cpp.o -o ../../../bin/test_storage  ../../../lib/libgtest_main.a ../../../lib/liblru_replacer.a ../../../lib/libstorage.a ../../../lib/libgtest.a 

@@ -1,0 +1,7 @@
+test_parser 1 0.00437389
+test_buffer_pool_manager 1 0.00443494
+test_lru_replacer 1 0.00210046
+test_buffer_pool_manager_concurrency 1 0.0921691
+test_storage 1 1.04737
+test_record_manager 1 0.318271
+---
