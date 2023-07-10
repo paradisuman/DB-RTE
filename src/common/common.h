@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 #include <string>
 #include <vector>
+#include <set>
 #include "defs.h"
 #include "record/rm_defs.h"
 
@@ -53,7 +54,7 @@ struct Value {
         str_val = std::move(str_val_);
     }
 
-    void init_raw(int len) {
+    void init_raw(size_t len) {
         assert(raw == nullptr);
         raw = std::make_shared<RmRecord>(len);
         if (type == TYPE_INT) {
@@ -63,11 +64,27 @@ struct Value {
             assert(len == sizeof(float));
             *(float *)(raw->data) = float_val;
         } else if (type == TYPE_STRING) {
-            if (len < (int)str_val.size()) {
+            if (len < str_val.size()) {
                 throw StringOverflowError();
             }
             memset(raw->data, 0, len);
             memcpy(raw->data, str_val.c_str(), str_val.size());
+        }
+    }
+
+    void load_raw(size_t len, char *data) {
+        assert(raw == nullptr);
+        if (type == TYPE_INT) {
+            assert(len == sizeof(int));
+            int_val = *(int *)(data);
+        } else if (type == TYPE_FLOAT) {
+            assert(len == sizeof(float));
+            float_val = *(float *)(data);
+        } else if (type == TYPE_STRING) {
+            if (len < (int)str_val.size()) {
+                throw StringOverflowError();
+            }
+            str_val = std::string(data, len);
         }
     }
 };
@@ -86,3 +103,46 @@ struct SetClause {
     TabCol lhs;
     Value rhs;
 };
+
+const std::vector<std::set<ColType>> legal_binop = {
+    /* [TYPE_INT]     = */ {TYPE_INT, TYPE_FLOAT},
+    /* [TYPE_FLOAT]   = */ {TYPE_INT, TYPE_FLOAT},
+    /* [TYPE_STRING]  = */ {TYPE_STRING},
+};
+
+bool binop(const CompOp op, const Value &lval, const Value &rval) {
+    auto _binop = [&] (auto t1, auto t2) {
+        switch (op) {
+            case OP_EQ : return t1 == t2;
+            case OP_NE : return t1 != t2;
+            case OP_LT : return t1 <  t2;
+            case OP_GT : return t1 >  t2;
+            case OP_LE : return t1 <= t2;
+            case OP_GE : return t1 >= t2;
+        }
+    };
+
+    auto _str_binop = [&] (std::string s1, std::string s2) {
+        int _strcmp = std::strcmp(s1.c_str(), s2.c_str());
+        switch (op) {
+            case OP_EQ : return _strcmp == 0;
+            case OP_NE : return _strcmp != 0;
+            case OP_LT : return _strcmp <  0;
+            case OP_GT : return _strcmp >  0;
+            case OP_LE : return _strcmp <= 0;
+            case OP_GE : return _strcmp >= 0;
+        }
+    };
+
+    switch (lval.type) {
+        case TYPE_INT : switch (rval.type) {
+                            case TYPE_INT   : return _binop(lval.int_val, rval.int_val);
+                            case TYPE_FLOAT : return _binop(lval.int_val, rval.float_val);
+                        }
+        case TYPE_FLOAT : switch (rval.type) {
+                            case TYPE_INT   : return _binop(lval.float_val, rval.int_val);
+                            case TYPE_FLOAT : return _binop(lval.float_val, rval.float_val);
+                        }
+        case TYPE_STRING : return _str_binop(lval.str_val, rval.str_val);
+    }
+}

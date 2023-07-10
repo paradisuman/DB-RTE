@@ -26,6 +26,10 @@ std::unique_ptr<RmRecord> RmFileHandle::get_record(const Rid& rid, Context* cont
     // 获取指定记录所在的 page handle
     const auto &target_page_handle = fetch_page_handle(rid.page_no);
 
+    if (!Bitmap::is_set(target_page_handle.slots, rid.slot_no)) {
+        throw RecordNotFoundError(rid.page_no, rid.slot_no);
+    }
+
     // 初始化一个指向RmRecord的指针(赋值其内部的data和size)
     auto ret = std::make_unique<RmRecord>(
         file_hdr_.record_size,

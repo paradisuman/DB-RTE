@@ -42,8 +42,8 @@ struct ColMeta {
 /* 索引元数据 */
 struct IndexMeta {
     std::string tab_name;           // 索引所属表名称
-    int col_tot_len;                // 索引字段长度总和
-    int col_num;                    // 索引字段数量
+    size_t col_tot_len;                // 索引字段长度总和
+    size_t col_num;                    // 索引字段数量
     std::vector<ColMeta> cols;      // 索引包含的字段
 
     friend std::ostream &operator<<(std::ostream &os, const IndexMeta &index) {
@@ -56,7 +56,7 @@ struct IndexMeta {
 
     friend std::istream &operator>>(std::istream &is, IndexMeta &index) {
         is >> index.tab_name >> index.col_tot_len >> index.col_num;
-        for(int i = 0; i < index.col_num; ++i) {
+        for(size_t _ = 0; _ < index.col_num; ++_) {
             ColMeta col;
             is >> col;
             index.cols.push_back(col);
@@ -71,7 +71,7 @@ struct TabMeta {
     std::vector<ColMeta> cols;          // 表包含的字段
     std::vector<IndexMeta> indexes;     // 表上建立的索引
 
-    TabMeta(){}
+    TabMeta(std::string name_ = "") { name = name_; }
 
     TabMeta(const TabMeta &other) {
         name = other.name;
@@ -164,7 +164,7 @@ class DbMeta {
     std::map<std::string, TabMeta> tabs_;   // 数据库中包含的表
 
    public:
-    // DbMeta(std::string name) : name_(name) {}
+    DbMeta(std::string name = "") : name_(name) {}
 
     /* 判断数据库中是否存在指定名称的表 */
     bool is_table(const std::string &tab_name) const { return tabs_.find(tab_name) != tabs_.end(); }
