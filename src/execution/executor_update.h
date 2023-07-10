@@ -38,7 +38,37 @@ class UpdateExecutor : public AbstractExecutor {
         context_ = context;
     }
     std::unique_ptr<RmRecord> Next() override {
-        
+        // 符合条件字段在rids中
+        // 对每行数据进行更新
+        for (size_t i = 0; i < rids_.size(); i++) {
+            // 获取原信息
+            RmRecord update = *fh_->get_record(rids_[i], context_);
+            // 更新数据
+            for(auto &x : set_clauses_){
+                auto col = *tab_.get_col(x.lhs.col_name);
+                auto &val = x.rhs;
+                if (col.type != val.type) {
+                    throw IncompatibleTypeError(coltype2str(col.type), coltype2str(val.type));
+                }
+                val.init_raw(col.len);
+                memcpy(update.data + col.offset, val.raw->data, col.len);
+            }
+            // 更新记录
+            fh_->update_record(rids_[i], update.data, context_);
+
+            // 更新索引
+            for(size_t i = 0; i < tab_.indexes.size(); ++i) {
+                auto& index = tab_.indexes[i];
+                auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
+                char* key = new char[index.col_tot_len];
+                int offset = 0;
+                for(size_t i = 0; i < index.col_num; ++i) {
+                    memcpy(key + offset, update.data + index.cols[i].offset, index.cols[i].len);
+                    offset += index.cols[i].len;
+                }
+                ih->insert_entry(key, rids_[i], context_->txn_);
+            }
+        }
         return nullptr;
     }
 
