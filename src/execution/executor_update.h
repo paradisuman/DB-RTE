@@ -15,6 +15,8 @@ See the Mulan PSL v2 for more details. */
 #include "index/ix.h"
 #include "system/sm.h"
 
+#include <algorithm>
+
 class UpdateExecutor : public AbstractExecutor {
    private:
     TabMeta tab_;
@@ -36,25 +38,29 @@ class UpdateExecutor : public AbstractExecutor {
         conds_ = conds;
         rids_ = rids;
         context_ = context;
+
+        // 预处理 Value
+        for (auto &x : set_clauses_) {
+            x.rhs.init_raw(tab_.get_col(x.lhs.col_name)->len);
+        }
     }
     std::unique_ptr<RmRecord> Next() override {
         // 符合条件字段在rids中
         // 对每行数据进行更新
-        for (size_t i = 0; i < rids_.size(); i++) {
+        for (const auto &rid : rids_) {
             // 获取原信息
-            RmRecord update = *fh_->get_record(rids_[i], context_);
+            auto target_record = fh_->get_record(rid, context_);
             // 更新数据
-            for(auto &x : set_clauses_){
-                auto col = *tab_.get_col(x.lhs.col_name);
+            for (const auto &x : set_clauses_) {
+                const auto &col = *tab_.get_col(x.lhs.col_name);
                 auto &val = x.rhs;
-                if (col.type != val.type) {
+                if (!is_compatible_type(col.type, val.type)) {
                     throw IncompatibleTypeError(coltype2str(col.type), coltype2str(val.type));
                 }
-                val.init_raw(col.len);
-                memcpy(update.data + col.offset, val.raw->data, col.len);
+                memcpy(target_record->data + col.offset, val.raw->data, col.len);
             }
             // 更新记录
-            fh_->update_record(rids_[i], update.data, context_);
+            fh_->update_record(rid, target_record->data, context_);
 
             // 更新索引
             for(size_t i = 0; i < tab_.indexes.size(); ++i) {
@@ -63,10 +69,10 @@ class UpdateExecutor : public AbstractExecutor {
                 char* key = new char[index.col_tot_len];
                 int offset = 0;
                 for(size_t i = 0; i < index.col_num; ++i) {
-                    memcpy(key + offset, update.data + index.cols[i].offset, index.cols[i].len);
+                    memcpy(key + offset, target_record->data + index.cols[i].offset, index.cols[i].len);
                     offset += index.cols[i].len;
                 }
-                ih->insert_entry(key, rids_[i], context_->txn_);
+                ih->insert_entry(key, rid, context_->txn_);
             }
         }
         return nullptr;

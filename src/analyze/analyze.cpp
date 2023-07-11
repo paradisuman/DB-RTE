@@ -85,7 +85,7 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
             Value val = convert_sv_value(set_clause->val);
             ColType lhs_type = table.get_col(set_clause->col_name)->type;
             ColType rhs_type = val.type;
-            if (lhs_type != rhs_type) {
+            if (!is_compatible_type(lhs_type, rhs_type)) {
                 throw IncompatibleTypeError(coltype2str(lhs_type), coltype2str(rhs_type));
             }
             query->set_clauses.push_back(SetClause {sel_col, val});
@@ -193,7 +193,7 @@ void Analyze::check_clause(const std::vector<std::string> &tab_names, std::vecto
             auto rhs_col = rhs_tab.get_col(cond.rhs_col.col_name);
             rhs_type = rhs_col->type;
         }
-        if (!is_legal_binary_expr(lhs_type, rhs_type)) {
+        if (!is_compatible_type(lhs_type, rhs_type)) {
             throw IncompatibleTypeError(coltype2str(lhs_type), coltype2str(rhs_type));
         }
     }
