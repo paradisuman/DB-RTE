@@ -43,7 +43,7 @@ class InsertExecutor : public AbstractExecutor {
         for (size_t i = 0; i < values_.size(); i++) {
             auto &col = tab_.cols[i];
             auto &val = values_[i];
-            if (col.type != val.type) {
+            if (!is_compatible_type(col.type, val.type)) {
                 throw IncompatibleTypeError(coltype2str(col.type), coltype2str(val.type));
             }
             val.init_raw(col.len);
