@@ -218,6 +218,7 @@ void SmManager::drop_table(const std::string& tab_name, Context* context) {
     }
 
     //先删除db_中的表，再删除文件表，最后删除fhs_中的表
+    fhs_[tab_name]->close_all_page();
     rm_manager_->close_file(fhs_[tab_name].get());
     rm_manager_->destroy_file(tab_name);
     fhs_.erase(tab_name);

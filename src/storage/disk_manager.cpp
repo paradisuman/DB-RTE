@@ -215,6 +215,8 @@ void DiskManager::close_file(int fd) {
     path2fd_.erase(fd2path_[fd]);
     // 在fd2path_中删除打开记录
     fd2path_.erase(fd); 
+    // 在 fd2pageno_ 中归零
+    fd2pageno_[fd] = 0;
 }
 
 

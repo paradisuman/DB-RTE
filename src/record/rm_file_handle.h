@@ -83,6 +83,8 @@ class RmFileHandle {
 
     void update_record(const Rid &rid, char *buf, Context *context);
 
+    void close_all_page() { assert(true == buffer_pool_manager_->delete_all_page(fd_)); }
+
     RmPageHandle create_new_page_handle();
 
     RmPageHandle fetch_page_handle(int page_no) const;

@@ -40,6 +40,8 @@ void RmScan::next() {
             file_handle_->file_hdr_.num_records_per_page,
             rid_.slot_no
         );
+        // unpin 当前的页面
+        file_handle_->buffer_pool_manager_->unpin_page(page_handle.page->get_page_id(), false);
         // 若在当前页面搜索到记录 返回
         if (rid_.slot_no < file_handle_->file_hdr_.num_records_per_page)
             return;

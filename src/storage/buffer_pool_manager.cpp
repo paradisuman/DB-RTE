@@ -296,6 +296,35 @@ bool BufferPoolManager::delete_page(PageId page_id) {
 }
 
 /**
+ * @description: 删除buffer pool manager中缓存的全部页面
+ * @param {int} fd 待删除的文件的fd
+ */
+bool BufferPoolManager::delete_all_page(int fd) {
+    std::scoped_lock lock{latch_};
+
+    std::vector<frame_id_t> target_frames;
+    // 先检查是否所有页面都可删除
+    for (const auto &[page_id, frame_id] : page_table_) {
+        // 只删除 fd 的页面
+        if (page_id.fd != fd)
+            continue;
+        // 所有页面均释放才可以删除
+        if (pages_[frame_id].pin_count_ != 0)
+            return false;
+        // 加入待删除
+        target_frames.push_back(frame_id);
+    }
+    // 删除页面
+    for (frame_id_t frame_id : target_frames) {
+        auto target_page = pages_[frame_id];
+        update_page(&target_page, target_page.id_, INVALID_FRAME_ID);
+        free_list_.push_back(frame_id);
+    }
+    return true;
+}
+
+
+/**
  * @description: 将buffer_pool中的所有页写回到磁盘
  * @param {int} fd 文件句柄
  * @note 涉及临界资源 {page_table_, pages_}

@@ -153,7 +153,6 @@ void RmFileHandle::delete_record(const Rid& rid, Context* context) {
     buffer_pool_manager_->unpin_page(target_page_handle.page->get_page_id(), true);
 }
 
-
 /**
  * @description: 更新记录文件中记录号为rid的记录
  * @param {Rid&} rid 要更新的记录的记录号（位置）
