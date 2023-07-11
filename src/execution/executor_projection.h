@@ -51,6 +51,8 @@ class ProjectionExecutor : public AbstractExecutor {
         prev_->nextTuple();
     }
 
+    virtual size_t tupleLen() const override { return len_; }
+
     std::unique_ptr<RmRecord> Next() override {
         // Make record buffer
         auto result = std::make_unique<RmRecord>(len_);
@@ -62,7 +64,7 @@ class ProjectionExecutor : public AbstractExecutor {
             const auto &raw_col = *std::find_if(
                 prev_cols.begin(),
                 prev_cols.end(),
-                [&] (const auto &prev_col) { return col.name == prev_col.name; }
+                [&] (const auto &prev_col) { return col.name == prev_col.name && col.tab_name == prev_col.tab_name; }
             );
             std::copy_n(prev_next->data + raw_col.offset, col.len, result->data + col.offset);
         }
