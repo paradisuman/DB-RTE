@@ -13,6 +13,8 @@
 %{
 #include "ast.h"
 #include "yacc.tab.h"
+#include "errors.h"
+#include "common/datetime_utils.hpp"
 #include <iostream>
 
 // automatically update location
@@ -38,6 +40,7 @@ sign "+"|"-"
 identifier {alpha}(_|{alpha}|{digit})*
 value_int {sign}?{digit}+
 value_float {sign}?{digit}+\.({digit}+)?
+value_datetime '{digit}{4}-{digit}{2}-{digit}{2}{white_space}{digit}{2}:{digit}{2}:{digit}{2}'
 value_string '[^']*'
 single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
 
@@ -75,6 +78,8 @@ single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
 "SET" { return SET; }
 "SELECT" { return SELECT; }
 "INT" { return INT; }
+"BIGINT" { return BIGINT; }
+"DATETIME" { return DATETIME; }
 "CHAR" { return CHAR; }
 "FLOAT" { return FLOAT; }
 "INDEX" { return INDEX; }
@@ -97,12 +102,78 @@ single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
 }
     /* literals */
 {value_int} {
-    yylval->sv_int = atoi(yytext);
-    return VALUE_INT;
+    static constexpr char int_max[] = "2147483647",
+                          int_min[] = "2147483648";
+    size_t num_len = strlen(yytext);
+    // 返回 int
+    auto is_int = [&] () mutable {
+        yylval->sv_int = atoi(yytext);
+        return VALUE_INT;
+    };
+    // 返回 bigint
+    auto is_bigint = [&] () mutable {
+        yylval->sv_bigint = std::stoll(yytext);
+        return VALUE_BIGINT;
+    };
+
+    // 对于负数输入
+    if (yytext[0] == '-') {
+        num_len += 1;
+        if (num_len < sizeof(int_min)) {
+            // yytext 长度小于 int_min 最小值长度 说明为 int 类型
+            return is_int();
+        } else if (num_len > sizeof(int_min)) {
+            // yytext 长度大于 int_min 最小值长度 说明为 bigint 类型
+            return is_bigint();
+        } else {
+            // 否则需要比较 yytext 于 int_min 的字典序
+            if (strcmp(yytext + 1, int_min) <= 0)
+                return is_int();
+            else
+                return is_bigint();
+        }
+    }
+    // 对于有正号的正数输入
+    else if (yytext[0] == '+') {
+        num_len += 1;
+        if (num_len < sizeof(int_max)) {
+            // yytext 长度小于 int_max 最小值长度 说明为 int 类型
+            return is_int();
+        } else if (num_len > sizeof(int_max)) {
+            // yytext 长度大于 int_min 最小值长度 说明为 bigint 类型
+            return is_bigint();
+        } else {
+            // 否则需要比较 yytext 于 int_min 的字典序
+            if (strcmp(yytext + 1, int_max) <= 0)
+                return is_int();
+            else
+                return is_bigint();
+        }
+    }
+    // 对于有正号的正数输入
+    else {
+        if (num_len < sizeof(int_max)) {
+            // yytext 长度小于 int_max 最小值长度 说明为 int 类型
+            return is_int();
+        } else if (num_len > sizeof(int_max)) {
+            // yytext 长度大于 int_max 最小值长度 说明为 bigint 类型
+            return is_bigint();
+        } else {
+            // 否则需要比较 yytext 于 int_min 的字典序
+            if (strcmp(yytext, int_max) <= 0)
+                return is_int();
+            else
+                return is_bigint();
+        }
+    }
 }
 {value_float} {
     yylval->sv_float = atof(yytext);
     return VALUE_FLOAT;
+}
+{value_datetime} {
+    yylval->sv_datetime = datetime::to_bcd(std::string(yytext + 1));
+    return VALUE_DATETIME;
 }
 {value_string} {
     yylval->sv_str = std::string(yytext + 1, strlen(yytext) - 2);

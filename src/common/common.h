@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "defs.h"
 #include "record/rm_defs.h"
 
+#define expect(EXPR, EXCEPTION) if (!(EXPR)) throw EXCEPTION;
 
 struct TabCol {
     std::string tab_name;
@@ -34,6 +35,7 @@ struct Value {
     union {
         int int_val;      // int value
         float float_val;  // float value
+        datetime_t datetime_val; // datetime value
     };
     std::string str_val;  // string value
 
@@ -54,16 +56,30 @@ struct Value {
         str_val = std::move(str_val_);
     }
 
+    void set_datetime(datetime_t datetime_val_) {
+        type = TYPE_DATETIME;
+        datetime_val = datetime_val_;
+    }
+
     void init_raw(size_t len) {
         assert(raw == nullptr);
         raw = std::make_shared<RmRecord>(len);
         if (type == TYPE_INT) {
-            assert(len == sizeof(int));
-            *(int *)(raw->data) = int_val;
+            assert(len >= sizeof(int));
+            if (len == sizeof(int))
+                *(int *)(raw->data) = int_val;
+            else
+                *(int64_t *)(raw->data) = int_val;
+        } else if (type == TYPE_BIGINT) {
+            assert(len == sizeof(int64_t));
+            *(int64_t *)(raw->data) = bigint_val;
         } else if (type == TYPE_FLOAT) {
             assert(len == sizeof(float));
             *(float *)(raw->data) = float_val;
-        } else if (type == TYPE_STRING) {
+        } else if (type == TYPE_DATETIME) {
+            assert(len == sizeof(datetime_t));
+            *(datetime_t *)(raw->data) = datetime_val;
+        } else if (type >= TYPE_STRING) {
             if (len < str_val.size()) {
                 throw StringOverflowError();
             }
@@ -77,9 +93,15 @@ struct Value {
         if (type == TYPE_INT) {
             assert(len == sizeof(int));
             int_val = *(int *)(data);
+        } else if (type == TYPE_BIGINT) {
+            assert(len == sizeof(int64_t));
+            bigint_val = *(int64_t *)(data);
         } else if (type == TYPE_FLOAT) {
             assert(len == sizeof(float));
             float_val = *(float *)(data);
+        } else if (type == TYPE_DATETIME) {
+            assert(len == sizeof(datetime_t));
+            datetime_val = *(datetime_t *)(data);
         } else if (type == TYPE_STRING) {
             if (len < str_val.size()) {
                 throw StringOverflowError();
@@ -105,10 +127,11 @@ struct SetClause {
 };
 
 const std::vector<std::set<ColType>> legal_binop = {
-    /* [TYPE_INT]     = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
-    /* [TYPE_FLOAT]   = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
-    /* [TYPE_BIGINT]  = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
-    /* [TYPE_STRING]  = */ {TYPE_STRING},
+    /* [TYPE_INT]      = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
+    /* [TYPE_FLOAT]    = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
+    /* [TYPE_BIGINT]   = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
+    /* [TYPE_STRING]   = */ {TYPE_STRING},
+    /* [TYPE_DATETIME] = */ {TYPE_DATETIME},
 };
 
 inline bool is_compatible_type(const ColType a, const ColType b) {
@@ -160,6 +183,7 @@ inline bool binop(const CompOp op, const Value &lval, const Value &rval) {
                             case TYPE_BIGINT : return _binop(lval.float_val, rval.bigint_val);
                             default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
                         }
+        case TYPE_DATETIME : return _binop(lval.datetime_val, rval.datetime_val);
         case TYPE_STRING : return _str_binop(lval.str_val, rval.str_val);
         default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
     }

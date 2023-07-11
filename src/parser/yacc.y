@@ -22,14 +22,16 @@ using namespace ast;
 
 // keywords
 %token SHOW TABLES CREATE TABLE DROP DESC INSERT INTO VALUES DELETE FROM ASC ORDER BY
-WHERE UPDATE SET SELECT INT CHAR FLOAT INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_COMMIT TXN_ABORT TXN_ROLLBACK ORDER_BY
+WHERE UPDATE SET SELECT INT BIGINT CHAR FLOAT DATETIME INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_COMMIT TXN_ABORT TXN_ROLLBACK ORDER_BY
 // non-keywords
 %token LEQ NEQ GEQ T_EOF
 
 // type-specific tokens
 %token <sv_str> IDENTIFIER VALUE_STRING
 %token <sv_int> VALUE_INT
+%token <sv_bigint> VALUE_BIGINT
 %token <sv_float> VALUE_FLOAT
+%token <sv_datetime> VALUE_DATETIME
 
 // specify types for non-terminal symbol
 %type <sv_node> stmt dbStmt ddl dml txnStmt
@@ -188,6 +190,10 @@ type:
     {
         $$ = std::make_shared<TypeLen>(SV_TYPE_INT, sizeof(int));
     }
+    |   BIGINT
+    {
+        $$ = std::make_shared<TypeLen>(SV_TYPE_BIGINT, sizeof(int64_t));
+    }
     |   CHAR '(' VALUE_INT ')'
     {
         $$ = std::make_shared<TypeLen>(SV_TYPE_STRING, $3);
@@ -195,6 +201,10 @@ type:
     |   FLOAT
     {
         $$ = std::make_shared<TypeLen>(SV_TYPE_FLOAT, sizeof(float));
+    }
+    |   DATETIME
+    {
+        $$ = std::make_shared<TypeLen>(SV_TYPE_DATETIME, sizeof(datetime_t));
     }
     ;
 
@@ -214,6 +224,10 @@ value:
     {
         $$ = std::make_shared<IntLit>($1);
     }
+    |   VALUE_BIGINT
+    {
+        $$ = std::make_shared<BigintLit>($1);
+    }
     |   VALUE_FLOAT
     {
         $$ = std::make_shared<FloatLit>($1);
@@ -221,6 +235,10 @@ value:
     |   VALUE_STRING
     {
         $$ = std::make_shared<StringLit>($1);
+    }
+    |   VALUE_DATETIME
+    {
+        $$ = std::make_shared<DatetimeLit>($1);
     }
     ;
 
