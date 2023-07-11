@@ -86,5 +86,5 @@ class Page {
     bool is_dirty_ = false;
 
     /** The pin count of this page. */
-    std::atomic<int> pin_count_ = 0;
+    int pin_count_ = 0;
 };
