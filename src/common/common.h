@@ -105,8 +105,9 @@ struct SetClause {
 };
 
 const std::vector<std::set<ColType>> legal_binop = {
-    /* [TYPE_INT]     = */ {TYPE_INT, TYPE_FLOAT},
-    /* [TYPE_FLOAT]   = */ {TYPE_INT, TYPE_FLOAT},
+    /* [TYPE_INT]     = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
+    /* [TYPE_FLOAT]   = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
+    /* [TYPE_BIGINT]  = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
     /* [TYPE_STRING]  = */ {TYPE_STRING},
 };
 
@@ -142,13 +143,21 @@ inline bool binop(const CompOp op, const Value &lval, const Value &rval) {
 
     switch (lval.type) {
         case TYPE_INT : switch (rval.type) {
-                            case TYPE_INT   : return _binop(lval.int_val, rval.int_val);
-                            case TYPE_FLOAT : return _binop(lval.int_val, rval.float_val);
+                            case TYPE_INT    : return _binop(lval.int_val, rval.int_val);
+                            case TYPE_FLOAT  : return _binop(lval.int_val, rval.float_val);
+                            case TYPE_BIGINT : return _binop(lval.int_val, rval.bigint_val);
+                            default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
+                        }
+        case TYPE_BIGINT : switch (rval.type) {
+                            case TYPE_INT    : return _binop(lval.bigint_val, rval.int_val);
+                            case TYPE_FLOAT  : return _binop(lval.bigint_val, rval.float_val);
+                            case TYPE_BIGINT : return _binop(lval.bigint_val, rval.bigint_val);
                             default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
                         }
         case TYPE_FLOAT : switch (rval.type) {
-                            case TYPE_INT   : return _binop(lval.float_val, rval.int_val);
-                            case TYPE_FLOAT : return _binop(lval.float_val, rval.float_val);
+                            case TYPE_INT    : return _binop(lval.float_val, rval.int_val);
+                            case TYPE_FLOAT  : return _binop(lval.float_val, rval.float_val);
+                            case TYPE_BIGINT : return _binop(lval.float_val, rval.bigint_val);
                             default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
                         }
         case TYPE_STRING : return _str_binop(lval.str_val, rval.str_val);
