@@ -110,7 +110,7 @@ const std::vector<std::set<ColType>> legal_binop = {
     /* [TYPE_STRING]  = */ {TYPE_STRING},
 };
 
-inline bool is_legal_binary_expr(const ColType a, const ColType b) {
+inline bool is_compatible_type(const ColType a, const ColType b) {
     return legal_binop.at(a).count(b) != 0;
 }
 
@@ -144,14 +144,14 @@ inline bool binop(const CompOp op, const Value &lval, const Value &rval) {
         case TYPE_INT : switch (rval.type) {
                             case TYPE_INT   : return _binop(lval.int_val, rval.int_val);
                             case TYPE_FLOAT : return _binop(lval.int_val, rval.float_val);
-                            default         : throw IncompatibleTypeError("", "");
+                            default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
                         }
         case TYPE_FLOAT : switch (rval.type) {
                             case TYPE_INT   : return _binop(lval.float_val, rval.int_val);
                             case TYPE_FLOAT : return _binop(lval.float_val, rval.float_val);
-                            default         : throw IncompatibleTypeError("", "");
+                            default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
                         }
         case TYPE_STRING : return _str_binop(lval.str_val, rval.str_val);
-        default : throw IncompatibleTypeError("", "");
+        default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
     }
 }
