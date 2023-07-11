@@ -83,11 +83,13 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
                 throw ColumnNotFoundError(set_clause->col_name);
             // 类型检查以及类型设置
             Value val = convert_sv_value(set_clause->val);
-            ColType lhs_type = table.get_col(set_clause->col_name)->type;
-            ColType rhs_type = val.type;
+            auto col = table.get_col(set_clause->col_name);
+            ColType lhs_type = col->type;
+            ColType &rhs_type = val.type;
             if (!is_compatible_type(lhs_type, rhs_type)) {
                 throw IncompatibleTypeError(coltype2str(lhs_type), coltype2str(rhs_type));
             }
+            val.init_raw(col->len);
             query->set_clauses.push_back(SetClause {sel_col, val});
         }
 
@@ -208,6 +210,8 @@ Value Analyze::convert_sv_value(const std::shared_ptr<ast::Value> &sv_val) {
         val.set_float(float_lit->val);
     } else if (auto str_lit = std::dynamic_pointer_cast<ast::StringLit>(sv_val)) {
         val.set_str(str_lit->val);
+    } else if (auto datetime_lit = std::dynamic_pointer_cast<ast::DatetimeLit>(sv_val)) {
+        val.set_datetime(datetime_lit->val);
     } else {
         throw InternalError("Unexpected sv value type");
     }

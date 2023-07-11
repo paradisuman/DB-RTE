@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "executor_update.h"
 #include "index/ix.h"
 #include "record_printer.h"
+#include "common/datetime_utils.hpp"
 
 const char *help_info = "Supported SQL syntax:\n"
                    "  command ;\n"
@@ -235,6 +236,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
                 col_str = std::to_string(*(int *)rec_buf);
             } else if (col.type == TYPE_FLOAT) {
                 col_str = std::to_string(*(float *)rec_buf);
+            } else if (col.type == TYPE_DATETIME) {
+                col_str = datetime::to_string(*(datetime_t *)rec_buf);
             } else if (col.type == TYPE_STRING) {
                 col_str = std::string((char *)rec_buf, col.len);
                 col_str.resize(strlen(col_str.c_str()));

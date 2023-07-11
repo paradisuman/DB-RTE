@@ -38,11 +38,6 @@ class UpdateExecutor : public AbstractExecutor {
         conds_ = conds;
         rids_ = rids;
         context_ = context;
-
-        // 预处理 Value
-        for (auto &x : set_clauses_) {
-            x.rhs.init_raw(tab_.get_col(x.lhs.col_name)->len);
-        }
     }
     std::unique_ptr<RmRecord> Next() override {
         // 符合条件字段在rids中

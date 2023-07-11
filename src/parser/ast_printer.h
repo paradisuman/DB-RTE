@@ -10,6 +10,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "ast.h"
+#include "common/datetime_utils.hpp"
 #include <cassert>
 #include <iostream>
 #include <map>
@@ -44,8 +45,10 @@ private:
     static std::string type2str(SvType type) {
         static std::map<SvType, std::string> m{
                 {SV_TYPE_INT,    "INT"},
+                {SV_TYPE_BIGINT, "BIGINT"},
                 {SV_TYPE_FLOAT,  "FLOAT"},
                 {SV_TYPE_STRING, "STRING"},
+                {SV_TYPE_DATETIME,"DATETIME"},
         };
         return m.at(type);
     }
@@ -127,9 +130,15 @@ private:
         } else if (auto x = std::dynamic_pointer_cast<IntLit>(node)) {
             std::cout << "INT_LIT\n";
             print_val(x->val, offset);
+        } else if (auto x = std::dynamic_pointer_cast<BigintLit>(node)) {
+            std::cout << "BIGINT_LIT\n";
+            print_val(x->val, offset);
         } else if (auto x = std::dynamic_pointer_cast<FloatLit>(node)) {
             std::cout << "FLOAT_LIT\n";
             print_val(x->val, offset);
+        } else if (auto x = std::dynamic_pointer_cast<DatetimeLit>(node)) {
+            std::cout << "DATETIME_LIT\n";
+            print_val(datetime::to_string(x->val), offset);
         } else if (auto x = std::dynamic_pointer_cast<StringLit>(node)) {
             std::cout << "STRING_LIT\n";
             print_val(x->val, offset);
