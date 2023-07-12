@@ -21,6 +21,8 @@ constexpr int IX_LEAF_HEADER_PAGE = 1;
 constexpr int IX_INIT_ROOT_PAGE = 2;
 constexpr int IX_INIT_NUM_PAGES = 3;
 constexpr int IX_MAX_COL_LEN = 512;
+// 一个页为4096字节，可以存储1024个int，因此采用1000个节点
+constexpr int IX_MAX_NODE_NUMS = 1000;
 
 class IxFileHdr {
 public: 

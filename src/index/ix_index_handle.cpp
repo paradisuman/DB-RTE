@@ -12,6 +12,8 @@ See the Mulan PSL v2 for more details. */
 
 #include "ix_scan.h"
 
+#include <algorithm>
+
 /**
  * @brief 在当前node中查找第一个>=target的key_idx
  *
@@ -22,8 +24,27 @@ int IxNodeHandle::lower_bound(const char *target) const {
     // Todo:
     // 查找当前节点中第一个大于等于target的key，并返回key的位置给上层
     // 提示: 可以采用多种查找方式，如顺序遍历、二分查找等；使用ix_compare()函数进行比较
+    // 二分
 
-    return -1;
+    auto it = std::lower_bound(0, page_hdr->num_key - 1, target, [&](const int a) {
+        int ans = ix_compare(get_key(a), target, file_hdr->col_types_, file_hdr->col_lens_);
+        return ans == 0 || ans == 1;
+    });
+    return it;
+    // int left = 0;
+    // int right = file_hdr->keys_size_ - 1;
+    // int result = -1;
+
+    // while (left <= right) {
+    //     int mid = (left + right) / 2;
+    //     if (get_key(mid) >= target) {
+    //         result = mid;
+    //         right = mid - 1;
+    //     } else {
+    //         left = mid + 1;
+    //     }
+    // }
+    // return result;
 }
 
 /**
@@ -36,8 +57,11 @@ int IxNodeHandle::upper_bound(const char *target) const {
     // Todo:
     // 查找当前节点中第一个大于target的key，并返回key的位置给上层
     // 提示: 可以采用多种查找方式：顺序遍历、二分查找等；使用ix_compare()函数进行比较
-
-    return -1;
+    auto it = std::lower_bound(0, page_hdr->num_key - 1, target, [&](const int a) {
+        int ans = ix_compare(get_key(a), target, file_hdr->col_types_, file_hdr->col_lens_);
+        return ans == 1;
+    });
+    return it;
 }
 
 /**
@@ -54,7 +78,12 @@ bool IxNodeHandle::leaf_lookup(const char *key, Rid **value) {
     // 2. 判断目标key是否存在
     // 3. 如果存在，获取key对应的Rid，并赋值给传出参数value
     // 提示：可以调用lower_bound()和get_rid()函数。
-
+    int return_index = lower_bound(key);
+    if (return_index == page_hdr->num_key)
+        return false;
+    if (get_key(return_index) == key){
+        *value = get_rid(return_index);
+    }
     return false;
 }
 
@@ -68,7 +97,7 @@ page_id_t IxNodeHandle::internal_lookup(const char *key) {
     // 1. 查找当前非叶子节点中目标key所在孩子节点（子树）的位置
     // 2. 获取该孩子节点（子树）所在页面的编号
     // 3. 返回页面编号
-
+    
     return -1;
 }
 
