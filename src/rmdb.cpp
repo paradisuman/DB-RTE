@@ -127,6 +127,9 @@ void *client_handler(void *sock_fd) {
             if (yyparse() != 0 || ast::parse_tree == nullptr)
                 goto CONTINUE;
         } catch (std::exception &e) {
+            // 解锁
+            pthread_mutex_unlock(buffer_mutex);
+
             const std::string msg = std::string("Error: ") + e.what();
 
             std::cerr << msg << std::endl;

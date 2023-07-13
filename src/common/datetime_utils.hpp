@@ -9,7 +9,7 @@
 namespace datetime {
 
 inline std::string to_string(datetime_t datetime) {
-    static auto from_bcd = [&] (size_t offset, size_t len) {
+    auto from_bcd = [&] (size_t offset, size_t len) {
         uint64_t res = 0, field = ((datetime >> offset) & ((1 << (4 * len)) - 1));
         for (size_t i = 0; i < len; i += 1, field >>= 4)
             res += std::pow(10, i) * (field & 0b1111);
@@ -68,7 +68,7 @@ inline uint64_t to_bcd(std::string datetime) {
     if (!is_valid_day)
         throw InternalError("Illegal datatime.");
 
-    static auto to_bcd = [] (uint64_t num, size_t len) {
+    auto to_bcd = [] (uint64_t num, size_t len) {
         uint64_t res = 0;
         for (size_t i = 0; len; len -= 1, num /= 10, i += 4)
             res |= ((num % 10) << i);

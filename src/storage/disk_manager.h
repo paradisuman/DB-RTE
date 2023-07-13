@@ -14,7 +14,6 @@ See the Mulan PSL v2 for more details. */
 #include <sys/stat.h>  
 #include <unistd.h>    
 
-#include <atomic>
 #include <fstream>
 #include <iostream>
 #include <string>
