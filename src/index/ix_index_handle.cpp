@@ -26,25 +26,33 @@ int IxNodeHandle::lower_bound(const char *target) const {
     // 提示: 可以采用多种查找方式，如顺序遍历、二分查找等；使用ix_compare()函数进行比较
     // 二分
 
-    auto it = std::lower_bound(0, page_hdr->num_key - 1, target, [&](const int a) {
-        int ans = ix_compare(get_key(a), target, file_hdr->col_types_, file_hdr->col_lens_);
-        return ans == 0 || ans == 1;
-    });
-    return it;
-    // int left = 0;
-    // int right = file_hdr->keys_size_ - 1;
-    // int result = -1;
-
-    // while (left <= right) {
-    //     int mid = (left + right) / 2;
-    //     if (get_key(mid) >= target) {
-    //         result = mid;
-    //         right = mid - 1;
-    //     } else {
-    //         left = mid + 1;
+    // int it = std::lower_bound(
+    //     0,
+    //     page_hdr->num_key,
+    //     target,
+    //     [&] (const int a) {
+    //         int ans = ix_compare(get_key(a), target, file_hdr->col_types_, file_hdr->col_lens_);
+    //         return ans == 0 || ans == 1;
     //     }
-    // }
-    // return result;
+    // );
+    // return it;
+    /* fix */
+    // 一个节点一千个数据，顺序和二分最好斟酌使用
+    int left = 0;
+    int right = file_hdr->keys_size_ - 1;
+    int result = -1;
+
+    while (left <= right) {
+        int mid = (left + right) / 2;
+        int ans = ix_compare(get_key(mid), target, file_hdr->col_types_, file_hdr->col_lens_);
+        if ( ans == 0 || ans == 1) {
+            result = mid;
+            right = mid - 1;
+        } else {
+            left = mid + 1;
+        }
+    }
+    return result;
 }
 
 /**
@@ -57,11 +65,21 @@ int IxNodeHandle::upper_bound(const char *target) const {
     // Todo:
     // 查找当前节点中第一个大于target的key，并返回key的位置给上层
     // 提示: 可以采用多种查找方式：顺序遍历、二分查找等；使用ix_compare()函数进行比较
-    auto it = std::lower_bound(0, page_hdr->num_key - 1, target, [&](const int a) {
-        int ans = ix_compare(get_key(a), target, file_hdr->col_types_, file_hdr->col_lens_);
-        return ans == 1;
-    });
-    return it;
+    int left = 0;
+    int right = file_hdr->keys_size_ - 1;
+    int result = -1;
+
+    while (left <= right) {
+        int mid = (left + right) / 2;
+        int ans = ix_compare(get_key(mid), target, file_hdr->col_types_, file_hdr->col_lens_);
+        if ( ans == 1) {
+            result = mid;
+            right = mid - 1;
+        } else {
+            left = mid + 1;
+        }
+    }
+    return result;
 }
 
 /**
@@ -97,8 +115,10 @@ page_id_t IxNodeHandle::internal_lookup(const char *key) {
     // 1. 查找当前非叶子节点中目标key所在孩子节点（子树）的位置
     // 2. 获取该孩子节点（子树）所在页面的编号
     // 3. 返回页面编号
-    
-    return -1;
+    // 获取大于等于该值的index
+    int get_index = lower_bound(key);
+    // 此index即为子树index
+    return value_at(get_index);
 }
 
 /**
@@ -121,7 +141,31 @@ void IxNodeHandle::insert_pairs(int pos, const char *key, const Rid *rid, int n)
     // 2. 通过key获取n个连续键值对的key值，并把n个key值插入到pos位置
     // 3. 通过rid获取n个连续键值对的rid值，并把n个rid值插入到pos位置
     // 4. 更新当前节点的键数量
+    int old_size = get_size();
+    if (pos < 0 || pos >= old_size) {
+        // fix 临时使用的throw，不一定契合
+        throw IndexEntryNotFoundError();
+    }
+    int col_len = file_hdr->col_tot_len_;
 
+    // 分配key
+    int val_len = file_hdr->col_tot_len_;
+    for (size_t i = (old_size - 1) * val_len; i >= pos * val_len; i -= val_len) {
+        std::copy_n(keys + i, val_len, keys + i + n * val_len);
+    }
+    for (size_t i = pos * val_len; i < (old_size + n) * val_len; ++i) {
+        std::copy_n(key + i - pos, val_len , keys + i);
+    }
+    
+    // 分配rids
+    for (size_t i = old_size + n - 1; i >= pos; --i) {
+        rids[i + n] = rids[i];
+    }
+    for (size_t i = pos; i < old_size + n; ++i) {
+        rids[i] = rid[i - pos];
+    }
+    // 更新节点key数目
+    set_size(old_size + n);
 }
 
 /**
@@ -137,8 +181,30 @@ int IxNodeHandle::insert(const char *key, const Rid &value) {
     // 2. 如果key重复则不插入
     // 3. 如果key不重复则插入键值对
     // 4. 返回完成插入操作之后的键值对数量
+    int get_index = lower_bound(key);
+    int old_size = get_size();
+    // 如果已存在，不处理
+    if (get_key(get_index) == key) {
+        return old_size;
+    }
+    else {
+        // 处理key
+        int val_len = file_hdr->col_tot_len_;
+        for (size_t i = old_size * val_len; i >= get_index * val_len; i -= val_len) {
+            std::copy_n(i - val_len + keys, val_len, i + keys);
+        }
+        std::copy_n(key, val_len, get_index * val_len + keys);
 
-    return -1;
+        // 处理value
+        for (size_t i = old_size; i >= get_index; --i) {
+            rids[i] = rids[i - 1];
+        }
+        rids[get_index] = value;
+
+        set_size(old_size + 1);
+        return old_size + 1;
+    }
+    
 }
 
 /**
@@ -151,7 +217,11 @@ void IxNodeHandle::erase_pair(int pos) {
     // 1. 删除该位置的key
     // 2. 删除该位置的rid
     // 3. 更新结点的键值对数量
-
+    int old_size = get_size();
+    if (pos < 0 || pos >= old_size) {
+        // fix 临时使用的throw，不一定契合
+        throw IndexEntryNotFoundError();
+    }
 }
 
 /**
