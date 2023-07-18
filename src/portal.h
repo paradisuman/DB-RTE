@@ -10,6 +10,8 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include "execution/execution_manager.h"
+
 #include <cerrno>
 #include <cstring>
 #include <string>
@@ -28,9 +30,13 @@ See the Mulan PSL v2 for more details. */
 typedef enum portalTag{
     PORTAL_Invalid_Query = 0,
     PORTAL_ONE_SELECT,
+    PORTAL_SELECT_WITH_COUNT,
+    PORTAL_SELECT_WITH_MAX,
+    PORTAL_SELECT_WITH_MIN,
+    PORTAL_SELECT_WITH_SUM,
     PORTAL_DML_WITHOUT_SELECT,
     PORTAL_MULTI_QUERY,
-    PORTAL_CMD_UTILITY
+    PORTAL_CMD_UTILITY,
 } portalTag;
 
 
@@ -70,6 +76,34 @@ class Portal
                     std::shared_ptr<ProjectionPlan> p = std::dynamic_pointer_cast<ProjectionPlan>(x->subplan_);
                     std::unique_ptr<AbstractExecutor> root= convert_plan_executor(p, context);
                     return std::make_shared<PortalStmt>(PORTAL_ONE_SELECT, std::move(p->sel_cols_), std::move(root), plan);
+                }
+                case T_select_count:
+                {
+                    std::shared_ptr<ProjectionPlan> p = std::dynamic_pointer_cast<ProjectionPlan>(x->subplan_);
+                    std::unique_ptr<AbstractExecutor> root= convert_plan_executor(p, context);
+                    std::vector<TabCol> caption = {TabCol {.tab_name = "", .col_name = x->alias_}};
+                    return std::make_shared<PortalStmt>(PORTAL_SELECT_WITH_COUNT, std::move(caption), std::move(root), plan);
+                }
+                case T_select_max:
+                {
+                    std::shared_ptr<ProjectionPlan> p = std::dynamic_pointer_cast<ProjectionPlan>(x->subplan_);
+                    std::unique_ptr<AbstractExecutor> root= convert_plan_executor(p, context);
+                    std::vector<TabCol> caption = {TabCol {.tab_name = "", .col_name = x->alias_}};
+                    return std::make_shared<PortalStmt>(PORTAL_SELECT_WITH_MAX, std::move(caption), std::move(root), plan);
+                }
+                case T_select_min:
+                {
+                    std::shared_ptr<ProjectionPlan> p = std::dynamic_pointer_cast<ProjectionPlan>(x->subplan_);
+                    std::unique_ptr<AbstractExecutor> root= convert_plan_executor(p, context);
+                    std::vector<TabCol> caption = {TabCol {.tab_name = "", .col_name = x->alias_}};
+                    return std::make_shared<PortalStmt>(PORTAL_SELECT_WITH_MIN, std::move(caption), std::move(root), plan);
+                }
+                case T_select_sum:
+                {
+                    std::shared_ptr<ProjectionPlan> p = std::dynamic_pointer_cast<ProjectionPlan>(x->subplan_);
+                    std::unique_ptr<AbstractExecutor> root= convert_plan_executor(p, context);
+                    std::vector<TabCol> caption = {TabCol {.tab_name = "", .col_name = x->alias_}};
+                    return std::make_shared<PortalStmt>(PORTAL_SELECT_WITH_SUM, std::move(caption), std::move(root), plan);
                 }
                     
                 case T_Update:
@@ -121,7 +155,27 @@ class Portal
         switch(portal->tag) {
             case PORTAL_ONE_SELECT:
             {
-                ql->select_from(std::move(portal->root), std::move(portal->sel_cols), context);
+                ql->select_from(std::move(portal->root), std::move(portal->sel_cols), ONE_SELECT, context);
+                break;
+            }
+            case PORTAL_SELECT_WITH_COUNT:
+            {
+                ql->select_from(std::move(portal->root), std::move(portal->sel_cols), SELECT_WITH_COUNT, context);
+                break;
+            }
+            case PORTAL_SELECT_WITH_MAX:
+            {
+                ql->select_from(std::move(portal->root), std::move(portal->sel_cols), SELECT_WITH_MAX, context);
+                break;
+            }
+            case PORTAL_SELECT_WITH_MIN:
+            {
+                ql->select_from(std::move(portal->root), std::move(portal->sel_cols), SELECT_WITH_MIN, context);
+                break;
+            }
+            case PORTAL_SELECT_WITH_SUM:
+            {
+                ql->select_from(std::move(portal->root), std::move(portal->sel_cols), SELECT_WITH_SUM, context);
                 break;
             }
 
