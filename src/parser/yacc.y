@@ -23,6 +23,7 @@ using namespace ast;
 // keywords
 %token SHOW TABLES CREATE TABLE DROP DESC INSERT INTO VALUES DELETE FROM ASC ORDER BY
 WHERE UPDATE SET SELECT INT CHAR FLOAT INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_COMMIT TXN_ABORT TXN_ROLLBACK ORDER_BY
+COUNT MAX MIN SUM AS
 // non-keywords
 %token LEQ NEQ GEQ T_EOF
 
@@ -50,6 +51,7 @@ WHERE UPDATE SET SELECT INT CHAR FLOAT INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_CO
 %type <sv_conds> whereClause optWhereClause
 %type <sv_orderby>  order_clause opt_order_clause
 %type <sv_orderby_dir> opt_asc_desc
+%type <sv_aggregate_type> aggregate_function
 
 %%
 start:
@@ -148,7 +150,31 @@ dml:
     {
         $$ = std::make_shared<SelectStmt>($2, $4, $5, $6);
     }
+    |   SELECT aggregate_function '(' selector ')' AS colName FROM tableList optWhereClause opt_order_clause
+    {
+        $$ = std::make_shared<SelectStmt>($4, $9, $10, $11, $2, $7);
+    }
     ;
+
+aggregate_function:
+        COUNT
+    {
+        $$ = SV_COUNT;
+    }
+    |   MAX
+    {
+        $$ = SV_MAX;
+    }
+    |   MIN
+    {
+        $$ = SV_MIN;
+    }
+    |   SUM
+    {
+        $$ = SV_SUM;
+    }
+    ;
+
 
 fieldList:
         field

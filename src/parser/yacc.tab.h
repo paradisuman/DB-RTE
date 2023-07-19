@@ -35,8 +35,8 @@
    especially those whose name start with YY_ or yy_.  They are
    private implementation details that can be changed or removed.  */
 
-#ifndef YY_YY_USERS_SXY_DOCUMENTS_PROJECTS_RUCBASE_SRC_PARSER_YACC_TAB_H_INCLUDED
-# define YY_YY_USERS_SXY_DOCUMENTS_PROJECTS_RUCBASE_SRC_PARSER_YACC_TAB_H_INCLUDED
+#ifndef YY_YY_HOME_TITANIUM_CODE_PROJECT_DB2023_RMDB_SRC_PARSER_YACC_TAB_H_INCLUDED
+# define YY_YY_HOME_TITANIUM_CODE_PROJECT_DB2023_RMDB_SRC_PARSER_YACC_TAB_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -85,14 +85,19 @@ extern int yydebug;
     TXN_ABORT = 286,               /* TXN_ABORT  */
     TXN_ROLLBACK = 287,            /* TXN_ROLLBACK  */
     ORDER_BY = 288,                /* ORDER_BY  */
-    LEQ = 289,                     /* LEQ  */
-    NEQ = 290,                     /* NEQ  */
-    GEQ = 291,                     /* GEQ  */
-    T_EOF = 292,                   /* T_EOF  */
-    IDENTIFIER = 293,              /* IDENTIFIER  */
-    VALUE_STRING = 294,            /* VALUE_STRING  */
-    VALUE_INT = 295,               /* VALUE_INT  */
-    VALUE_FLOAT = 296              /* VALUE_FLOAT  */
+    COUNT = 289,                   /* COUNT  */
+    MAX = 290,                     /* MAX  */
+    MIN = 291,                     /* MIN  */
+    SUM = 292,                     /* SUM  */
+    AS = 293,                      /* AS  */
+    LEQ = 294,                     /* LEQ  */
+    NEQ = 295,                     /* NEQ  */
+    GEQ = 296,                     /* GEQ  */
+    T_EOF = 297,                   /* T_EOF  */
+    IDENTIFIER = 298,              /* IDENTIFIER  */
+    VALUE_STRING = 299,            /* VALUE_STRING  */
+    VALUE_INT = 300,               /* VALUE_INT  */
+    VALUE_FLOAT = 301              /* VALUE_FLOAT  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -119,4 +124,4 @@ struct YYLTYPE
 int yyparse (void);
 
 
-#endif /* !YY_YY_USERS_SXY_DOCUMENTS_PROJECTS_RUCBASE_SRC_PARSER_YACC_TAB_H_INCLUDED  */
+#endif /* !YY_YY_HOME_TITANIUM_CODE_PROJECT_DB2023_RMDB_SRC_PARSER_YACC_TAB_H_INCLUDED  */
