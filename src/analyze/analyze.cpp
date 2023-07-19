@@ -44,6 +44,7 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
 
         // 若语句中未指定列 将所有列加入
         if (query->cols.empty()) {
+            query->is_all = true;
             // select all columns
             for (const auto &col : all_cols) {
                 query->cols.push_back(TabCol {

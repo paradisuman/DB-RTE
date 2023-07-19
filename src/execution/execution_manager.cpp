@@ -205,24 +205,36 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         }
         outfile << "\n";
 
-        if (executorTreeRoot->cols().size() > 1) {
-            // Print records
-            size_t num_rec = 0;
-            // 执行query_plan
-            for (executorTreeRoot->beginTuple(); !executorTreeRoot->is_end(); executorTreeRoot->nextTuple()) {
-                num_rec++;
-            }
-            // print record into buffer
-            rec_printer.print_record({std::to_string(num_rec)}, context);
-            // print record into file
-            outfile << "|" << " " << std::to_string(num_rec) << " |" << '\n';
-            outfile.close();
-            // Print footer into buffer
-            rec_printer.print_separator(context);
-            // Print record count into buffer
-            RecordPrinter::print_record_count(1, context);
-            return;
+        // Print records
+        size_t num_rec = 0;
+        // 执行query_plan
+        for (executorTreeRoot->beginTuple(); !executorTreeRoot->is_end(); executorTreeRoot->nextTuple()) {
+            num_rec++;
         }
+        // print record into buffer
+        rec_printer.print_record({std::to_string(num_rec)}, context);
+        // print record into file
+        outfile << "|" << " " << std::to_string(num_rec) << " |" << '\n';
+        outfile.close();
+        // Print footer into buffer
+        rec_printer.print_separator(context);
+        // Print record count into buffer
+        RecordPrinter::print_record_count(1, context);
+        return;
+    }
+    case (SELECT_WITH_UNIQUE_COUNT) : {
+        rec_printer.print_separator(context);
+        rec_printer.print_record(captions, context);
+        rec_printer.print_separator(context);
+        // print header into file
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+        outfile << "|";
+        for(size_t i = 0; i < captions.size(); ++i) {
+            outfile << " " << captions[i] << " |";
+        }
+        outfile << "\n";
+
         std::set<std::string> counter;
         const auto &col = executorTreeRoot->cols().front();
         // 执行query_plan

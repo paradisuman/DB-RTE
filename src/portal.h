@@ -31,6 +31,7 @@ typedef enum portalTag{
     PORTAL_Invalid_Query = 0,
     PORTAL_ONE_SELECT,
     PORTAL_SELECT_WITH_COUNT,
+    PORTAL_SELECT_WITH_UNIQUE_COUNT,
     PORTAL_SELECT_WITH_MAX,
     PORTAL_SELECT_WITH_MIN,
     PORTAL_SELECT_WITH_SUM,
@@ -82,7 +83,12 @@ class Portal
                     std::shared_ptr<ProjectionPlan> p = std::dynamic_pointer_cast<ProjectionPlan>(x->subplan_);
                     std::unique_ptr<AbstractExecutor> root= convert_plan_executor(p, context);
                     std::vector<TabCol> caption = {TabCol {.tab_name = "", .col_name = x->alias_}};
-                    return std::make_shared<PortalStmt>(PORTAL_SELECT_WITH_COUNT, std::move(caption), std::move(root), plan);
+                    return std::make_shared<PortalStmt>(
+                        (x->is_all_ ? PORTAL_SELECT_WITH_UNIQUE_COUNT : PORTAL_SELECT_WITH_COUNT),
+                        std::move(caption),
+                        std::move(root),
+                        plan
+                    );
                 }
                 case T_select_max:
                 {
@@ -161,6 +167,11 @@ class Portal
             case PORTAL_SELECT_WITH_COUNT:
             {
                 ql->select_from(std::move(portal->root), std::move(portal->sel_cols), SELECT_WITH_COUNT, context);
+                break;
+            }
+            case PORTAL_SELECT_WITH_UNIQUE_COUNT:
+            {
+                ql->select_from(std::move(portal->root), std::move(portal->sel_cols), SELECT_WITH_UNIQUE_COUNT, context);
                 break;
             }
             case PORTAL_SELECT_WITH_MAX:

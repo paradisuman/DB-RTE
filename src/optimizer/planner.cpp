@@ -370,6 +370,7 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query, Context 
     } else if (auto x = std::dynamic_pointer_cast<ast::SelectStmt>(query->parse)) {
         // select;
         std::shared_ptr<plannerInfo> root = std::make_shared<plannerInfo>(x);
+        bool is_all = query->is_all;
         // 生成select语句的查询执行计划
         std::shared_ptr<Plan> projection = generate_select_plan(std::move(query), context);
         PlanTag tag;
@@ -388,7 +389,8 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query, Context 
             std::vector<Value>(),
             std::vector<Condition>(),
             std::vector<SetClause>(),
-            x->alias
+            x->alias,
+            is_all
         );
     } else {
         throw InternalError("Unexpected AST root");

@@ -28,6 +28,7 @@ See the Mulan PSL v2 for more details. */
 enum SelectTag {
     ONE_SELECT,
     SELECT_WITH_COUNT,
+    SELECT_WITH_UNIQUE_COUNT,
     SELECT_WITH_MAX,
     SELECT_WITH_MIN,
     SELECT_WITH_SUM,
