@@ -192,6 +192,7 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         RecordPrinter::print_record_count(num_rec, context);
         return;
     }
+    case (SELECT_WITH_UNIQUE_COUNT) :
     case (SELECT_WITH_COUNT) : {
         rec_printer.print_separator(context);
         rec_printer.print_record(captions, context);
@@ -222,7 +223,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         RecordPrinter::print_record_count(1, context);
         return;
     }
-    case (SELECT_WITH_UNIQUE_COUNT) : {
+    case (-1) : {
+    // case (SELECT_WITH_UNIQUE_COUNT) : {
         rec_printer.print_separator(context);
         rec_printer.print_record(captions, context);
         rec_printer.print_separator(context);
