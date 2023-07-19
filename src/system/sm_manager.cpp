@@ -236,7 +236,45 @@ void SmManager::drop_table(const std::string& tab_name, Context* context) {
  * @param {Context*} context
  */
 void SmManager::create_index(const std::string& tab_name, const std::vector<std::string>& col_names, Context* context) {
-    
+    // 查找数据库中是否有表
+    // 先创建索引
+    if (db_.tabs_.find(tab_name) != db_.tabs_.end()) {
+        TabMeta &table = db_.get_table(tab_name);
+        IndexMeta new_index;
+        
+        // 加载new_index
+        new_index.col_num = col_names.size();
+        new_index.tab_name = tab_name;
+        // 创建索引meta
+        for (auto &y : col_names) {
+            for (auto &x : table.cols) {
+                if (x.name == y) {
+                    new_index.cols.push_back(x);
+                    continue;
+                }
+            }
+        }
+        // 没找到指定的索引！
+        if (new_index.cols.size() != new_index.col_num) {
+            throw InvalidColLengthError(new_index.col_num);
+        }
+        // 加载col len
+        new_index.col_tot_len = 0;
+        for (auto &x : new_index.cols) {
+            new_index.col_tot_len += x.len;
+        }
+        // 加载
+        ix_manager_->create_index(tab_name, new_index.cols);
+        table.indexes.push_back(new_index);
+        // 在ix_manager中进行管理
+        ihs_.emplace(
+            ix_manager_->get_index_name(tab_name, col_names), 
+            ix_manager_->open_index(tab_name, col_names)
+        );
+        
+        flush_meta();
+    }
+    else throw IndexEntryNotFoundError();
 }
 
 /**
@@ -246,7 +284,44 @@ void SmManager::create_index(const std::string& tab_name, const std::vector<std:
  * @param {Context*} context
  */
 void SmManager::drop_index(const std::string& tab_name, const std::vector<std::string>& col_names, Context* context) {
-    
+    if (db_.tabs_.find(tab_name) != db_.tabs_.end()) {
+        TabMeta &table = db_.get_table(tab_name);
+        if (table.is_index(col_names)) {
+            throw TableExistsError(tab_name);
+        }
+        // 找到指定索引
+        int index = -1;
+        for (size_t i = 0; i < table.indexes.size(); ++i) {
+            if (index != -1) {
+                break;
+            }
+            auto &x = table.indexes[i];
+            if (x.col_num = col_names.size()) {
+                // check if names are same
+                int count = 0;
+                for (auto &y : col_names) {
+                    for (auto &z : x.cols) {
+                        if (y == z.name) {
+                            ++count;
+                            continue;
+                        }
+                    }
+                    if (count == x.col_num) {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+        }
+        if (index == -1) {
+            throw RMDBError("drop_index没找到！");
+        }
+        table.indexes.erase(table.indexes.begin() + index);
+        ix_manager_->destroy_index(tab_name, col_names);
+
+        flush_meta();
+    }
+    else throw IndexEntryNotFoundError();
 }
 
 /**
@@ -256,5 +331,40 @@ void SmManager::drop_index(const std::string& tab_name, const std::vector<std::s
  * @param {Context*} context
  */
 void SmManager::drop_index(const std::string& tab_name, const std::vector<ColMeta>& cols, Context* context) {
+    if (db_.tabs_.find(tab_name) != db_.tabs_.end()) {
+        TabMeta &table = db_.get_table(tab_name);
+        // 找到指定索引
+        int index = -1;
+        for (size_t i = 0; i < table.indexes.size(); ++i) {
+            if (index != -1) {
+                break;
+            }
+            auto &x = table.indexes[i];
+            if (x.col_num = cols.size()) {
+                // check if names are same
+                int count = 0;
+                for (auto &y : cols) {
+                    for (auto &z : x.cols) {
+                        if (y.name == z.name) {
+                            ++count;
+                            continue;
+                        }
+                    }
+                    if (count == x.col_num) {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+        }
+        if (index == -1) {
+            throw RMDBError("drop_index没找到！");
+        }
+        table.indexes.erase(table.indexes.begin() + index);
+        ix_manager_->destroy_index(tab_name, cols);
+
+        flush_meta();
+    }
+    else throw IndexEntryNotFoundError();
     
 }
