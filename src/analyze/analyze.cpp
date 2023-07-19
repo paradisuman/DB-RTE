@@ -85,7 +85,7 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
             Value val = convert_sv_value(set_clause->val);
             auto col = table.get_col(set_clause->col_name);
             ColType lhs_type = col->type;
-            ColType &rhs_type = val.type;
+            ColType rhs_type = val.type;
             if (!is_compatible_type(lhs_type, rhs_type)) {
                 throw IncompatibleTypeError(coltype2str(lhs_type), coltype2str(rhs_type));
             }
