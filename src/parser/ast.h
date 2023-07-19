@@ -13,6 +13,8 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 #include <memory>
 
+#include "defs.h"
+
 enum JoinType {
     INNER_JOIN, LEFT_JOIN, RIGHT_JOIN, FULL_JOIN
 };
