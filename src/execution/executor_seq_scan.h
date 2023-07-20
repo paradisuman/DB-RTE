@@ -85,5 +85,13 @@ class SeqScanExecutor : public AbstractExecutor {
 
     virtual const std::vector<ColMeta> &cols() const override { return cols_; }
 
+    virtual ColMeta get_col_offset(const TabCol &target) {
+        return *std::find_if(
+            cols_.begin(),
+            cols_.end(),
+            [&] (const ColMeta &col) { return col.tab_name == target.tab_name && col.name == target.col_name; }
+        );
+    }
+
     virtual size_t tupleLen() const override { return len_; }
 };

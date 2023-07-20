@@ -257,18 +257,19 @@ std::shared_ptr<Plan> Planner::generate_sort_plan(std::shared_ptr<Query> query, 
     }
     std::vector<std::string> tables = query->tables;
     std::vector<ColMeta> all_cols;
-    for (auto &sel_tab_name : tables) {
+    for (const auto &sel_tab_name : tables) {
         // 这里db_不能写成get_db(), 注意要传指针
         const auto &sel_tab_cols = sm_manager_->db_.get_table(sel_tab_name).cols;
         all_cols.insert(all_cols.end(), sel_tab_cols.begin(), sel_tab_cols.end());
     }
-    TabCol sel_col;
-    for (auto &col : all_cols) {
-        if(col.name.compare(x->order->cols->col_name) == 0 )
-        sel_col = {.tab_name = col.tab_name, .col_name = col.name};
+    std::vector<std::pair<TabCol, bool>> sel_cols;
+    for (const auto &col : all_cols) {
+        for (const auto &order : x->orders) {
+            if ((order->col->tab_name == "" ? true : col.tab_name == order->col->tab_name) && col.name == order->col->col_name)
+                sel_cols.emplace_back(TabCol {col.tab_name, col.name}, (order->orderby_dir == ast::OrderBy_DESC));
+        }
     }
-    return std::make_shared<SortPlan>(T_Sort, std::move(plan), sel_col, 
-                                    x->order->orderby_dir == ast::OrderBy_DESC);
+    return std::make_shared<SortPlan>(T_Sort, std::move(plan), std::move(sel_cols), x->limit);
 }
 
 
