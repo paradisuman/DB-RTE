@@ -19,9 +19,9 @@ class SortExecutor : public AbstractExecutor {
    private:
     std::unique_ptr<AbstractExecutor> prev_;
     std::vector<std::pair<ColMeta, bool>> cols_;                              // 框架中只支持一个键排序，需要自行修改数据结构支持多个键排序
-    size_t tuple_num;
-    std::vector<size_t> used_tuple;
-    std::unique_ptr<RmRecord> current_tuple;
+    // size_t tuple_num;
+    // std::vector<size_t> used_tuple;
+    // std::unique_ptr<RmRecord> current_tuple;
 
     size_t tuple_ptr = 0;
     std::vector<std::unique_ptr<RmRecord>> all_record;
@@ -35,15 +35,15 @@ class SortExecutor : public AbstractExecutor {
             cols_.emplace_back(prev_->get_col_offset(sel_col), is_desc);
         limit_ = limit;
 
-        tuple_num = 0;
-        used_tuple.clear();
+        // tuple_num = 0;
+        // used_tuple.clear();
     }
 
     void beginTuple() override { 
         for (prev_->beginTuple(); !prev_->is_end(); prev_->nextTuple()) {
             all_record.push_back(prev_->Next());
         }
-        std::stable_sort(
+        std::sort(
             all_record.begin(),
             all_record.end(),
             [&] (const std::unique_ptr<RmRecord> &a, const std::unique_ptr<RmRecord> &b) {
