@@ -263,6 +263,41 @@ std::shared_ptr<Plan> Planner::generate_sort_plan(std::shared_ptr<Query> query, 
         all_cols.insert(all_cols.end(), sel_tab_cols.begin(), sel_tab_cols.end());
     }
     std::vector<std::pair<TabCol, bool>> sel_cols;
+    // 检查列是否存在是否又歧义 若无加入sel cols
+    for (const auto &order : x->orders) {
+        const auto &target_col = order->col;
+        // 未指定表 遍历所有潜在列查看列名是否唯一
+        if (target_col->tab_name.empty()) {
+            std::string tab_name;
+            for (const auto &col : all_cols) {
+                if (col.name != target_col->col_name)
+                    continue;
+                if (!tab_name.empty())
+                    // 非首次匹配到表名 抛出异常
+                    throw AmbiguousColumnError(target_col->col_name);
+                // 首次匹配到表名
+                tab_name = col.tab_name;
+            }
+            // 未匹配到表名 列不存在
+            if (tab_name.empty())
+                throw ColumnNotFoundError(target_col->col_name);
+            sel_cols.emplace_back(TabCol {tab_name, target_col->col_name}, (order->orderby_dir == ast::OrderBy_DESC));
+        }
+        // 指定表 则检查指定表中是否存在指定列
+        else {
+            if (all_cols.end() ==  std::find_if(
+                all_cols.begin(),
+                all_cols.end(),
+                [&] (const ColMeta &col) { return col.tab_name == target_col->tab_name && col.name == target_col->col_name; }
+            ))
+                throw ColumnNotFoundError(target_col->col_name);
+            // 匹配到则加入 sel_cols
+            sel_cols.emplace_back(
+                TabCol {target_col->tab_name, target_col->col_name},
+                (order->orderby_dir == ast::OrderBy_DESC)
+            );
+        }
+    }
     for (const auto &col : all_cols) {
         for (const auto &order : x->orders) {
             if ((order->col->tab_name == "" ? true : col.tab_name == order->col->tab_name) && col.name == order->col->col_name)
