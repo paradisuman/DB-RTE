@@ -74,7 +74,7 @@ class SortExecutor : public AbstractExecutor {
 
     Rid &rid() override { return _abstract_rid; }
 
-    virtual bool is_end() const { return (limit_ == -1 ? tuple_ptr == all_record.size() : tuple_ptr == (size_t)limit_); };
+    virtual bool is_end() const { return ((limit_ == -1 || limit_ >= tuple_ptr) ? tuple_ptr == all_record.size() : tuple_ptr == (size_t)limit_); };
 
     virtual const std::vector<ColMeta> &cols() const override { return prev_->cols(); }
 };
