@@ -57,7 +57,6 @@ class IxNodeHandle {
     IxPageHdr *page_hdr;            // page->data的第一部分，指针指向首地址，长度为sizeof(IxPageHdr)
     char *keys;                     // page->data的第二部分，指针指向首地址，长度为file_hdr->keys_size，每个key的长度为file_hdr->col_len
     Rid *rids;                      // page->data的第三部分，指针指向首地址
-    bool change_min = false;        // 修改了首个key值，涉及到父节点更新key
 
    public:
     IxNodeHandle() = default;
@@ -199,7 +198,7 @@ class IxIndexHandle {
                   Transaction *transaction, bool *root_is_latched);
 
     // bool返回其父节点是否需要继续更新
-    void update_node(IxNodeHandle *node, const char *key, const int index, Transaction *transaction);
+    void update_node(IxNodeHandle *parent_node, IxNodeHandle *node, const char* key, Transaction *transaction);
 
     Iid lower_bound(const char *key);
 

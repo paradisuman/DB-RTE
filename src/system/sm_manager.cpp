@@ -236,8 +236,13 @@ void SmManager::drop_table(const std::string& tab_name, Context* context) {
  * @param {Context*} context
  */
 void SmManager::create_index(const std::string& tab_name, const std::vector<std::string>& col_names, Context* context) {
-    // 查找数据库中是否有表
-    // 先创建索引
+    
+    // 查找索引是否存在
+    if(ix_manager_->exists(tab_name,col_names)){
+        throw new IndexExistsError(tab_name,col_names);
+    }
+
+    // 正常的表查询测试
     if (db_.tabs_.find(tab_name) != db_.tabs_.end()) {
         TabMeta &table = db_.get_table(tab_name);
         IndexMeta new_index;
@@ -263,15 +268,33 @@ void SmManager::create_index(const std::string& tab_name, const std::vector<std:
         for (auto &x : new_index.cols) {
             new_index.col_tot_len += x.len;
         }
+
         // 加载
         ix_manager_->create_index(tab_name, new_index.cols);
         table.indexes.push_back(new_index);
+
         // 在ix_manager中进行管理
+        std::string index_name = ix_manager_->get_index_name(tab_name, col_names);
         ihs_.emplace(
-            ix_manager_->get_index_name(tab_name, col_names), 
+            index_name, 
             ix_manager_->open_index(tab_name, col_names)
         );
-        
+
+        // 将已经存在的record加入索引
+        char *key = new char[new_index.col_tot_len];
+        auto ix_hdl = ihs_.at(index_name).get();
+        auto file_hdl = fhs_.at(tab_name).get();
+        for (RmScan rm_scan(file_hdl); !rm_scan.is_end(); rm_scan.next()) {
+            auto rec = file_hdl->get_record(rm_scan.rid(), context);  
+            int offset = 0;
+            for(size_t i = 0; i < new_index.col_num; ++i) {
+                    memcpy(key + offset, rec->data + new_index.cols[i].offset, new_index.cols[i].len);
+                    offset += new_index.cols[i].len;
+                }
+            ix_hdl->insert_entry(key, rm_scan.rid(), context->txn_);
+        }
+
+        delete[] key;
         flush_meta();
     }
     else throw IndexEntryNotFoundError();
@@ -286,38 +309,15 @@ void SmManager::create_index(const std::string& tab_name, const std::vector<std:
 void SmManager::drop_index(const std::string& tab_name, const std::vector<std::string>& col_names, Context* context) {
     if (db_.tabs_.find(tab_name) != db_.tabs_.end()) {
         TabMeta &table = db_.get_table(tab_name);
-        if (table.is_index(col_names)) {
-            throw TableExistsError(tab_name);
+        if (! table.is_index(col_names)) {
+            throw RMDBError("index没找到！");
         }
-        // 找到指定索引
-        int index = -1;
-        for (size_t i = 0; i < table.indexes.size(); ++i) {
-            if (index != -1) {
-                break;
-            }
-            auto &x = table.indexes[i];
-            if (x.col_num = col_names.size()) {
-                // check if names are same
-                int count = 0;
-                for (auto &y : col_names) {
-                    for (auto &z : x.cols) {
-                        if (y == z.name) {
-                            ++count;
-                            continue;
-                        }
-                    }
-                    if (count == x.col_num) {
-                        index = i;
-                        break;
-                    }
-                }
-            }
-        }
-        if (index == -1) {
-            throw RMDBError("drop_index没找到！");
-        }
-        table.indexes.erase(table.indexes.begin() + index);
+        
+        table.indexes.erase(table.get_index_meta(col_names));
+        std::string index_name = ix_manager_->get_index_name(tab_name, col_names);
+        ix_manager_->close_index(ihs_.at(index_name).get());
         ix_manager_->destroy_index(tab_name, col_names);
+        ihs_.erase(ix_manager_->get_index_name(tab_name, col_names));
 
         flush_meta();
     }
@@ -333,38 +333,44 @@ void SmManager::drop_index(const std::string& tab_name, const std::vector<std::s
 void SmManager::drop_index(const std::string& tab_name, const std::vector<ColMeta>& cols, Context* context) {
     if (db_.tabs_.find(tab_name) != db_.tabs_.end()) {
         TabMeta &table = db_.get_table(tab_name);
-        // 找到指定索引
-        int index = -1;
-        for (size_t i = 0; i < table.indexes.size(); ++i) {
-            if (index != -1) {
-                break;
-            }
-            auto &x = table.indexes[i];
-            if (x.col_num = cols.size()) {
-                // check if names are same
-                int count = 0;
-                for (auto &y : cols) {
-                    for (auto &z : x.cols) {
-                        if (y.name == z.name) {
-                            ++count;
-                            continue;
-                        }
-                    }
-                    if (count == x.col_num) {
-                        index = i;
-                        break;
-                    }
-                }
-            }
+        std::vector<std::string> col_names;
+        for (auto &x : cols) {
+            col_names.push_back(x.name);
         }
-        if (index == -1) {
-            throw RMDBError("drop_index没找到！");
+        // 查找index是否存在
+        if (! table.is_index(col_names)) {
+            throw RMDBError("index没找到！");
         }
-        table.indexes.erase(table.indexes.begin() + index);
-        ix_manager_->destroy_index(tab_name, cols);
-
+        
+        table.indexes.erase(table.get_index_meta(col_names));
+        std::string index_name = ix_manager_->get_index_name(tab_name, col_names);
+        ix_manager_->close_index(ihs_.at(index_name).get());
+        ix_manager_->destroy_index(tab_name, col_names);
+        ihs_.erase(ix_manager_->get_index_name(tab_name, col_names));
+        
         flush_meta();
     }
     else throw IndexEntryNotFoundError();
     
+}
+
+/**
+ * @description: 显示所有的表,通过测试需要将其结果写入到output.txt,详情看题目文档
+ * @param {Context*} context 
+ */
+void SmManager::show_index(const std::string& tab_name, const std::string& col_names, Context* context) {
+    std::fstream outfile;
+    outfile.open("output.txt", std::ios::out | std::ios::app);
+    outfile << "| Tables |\n";
+    RecordPrinter printer(1);
+    printer.print_separator(context);
+    printer.print_record({"Tables"}, context);
+    printer.print_separator(context);
+    for (auto &entry : db_.tabs_) {
+        auto &tab = entry.second;
+        printer.print_record({tab.name}, context);
+        outfile << "| " << tab.name << " |\n";
+    }
+    printer.print_separator(context);
+    outfile.close();
 }
