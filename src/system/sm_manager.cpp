@@ -239,65 +239,62 @@ void SmManager::create_index(const std::string& tab_name, const std::vector<std:
     
     // 查找索引是否存在
     if(ix_manager_->exists(tab_name,col_names)){
-        throw new IndexExistsError(tab_name,col_names);
+        throw IndexExistsError(tab_name,col_names);
     }
 
     // 正常的表查询测试
-    if (db_.tabs_.find(tab_name) != db_.tabs_.end()) {
-        TabMeta &table = db_.get_table(tab_name);
-        IndexMeta new_index;
-        
-        // 加载new_index
-        new_index.col_num = col_names.size();
-        new_index.tab_name = tab_name;
-        // 创建索引meta
-        for (auto &y : col_names) {
-            for (auto &x : table.cols) {
-                if (x.name == y) {
-                    new_index.cols.push_back(x);
-                    continue;
-                }
+    if (db_.tabs_.find(tab_name) == db_.tabs_.end()) 
+        throw RMDBError("tab not find");
+
+    TabMeta &table = db_.get_table(tab_name);
+    IndexMeta new_index;
+    
+    // 加载new_index
+    new_index.col_num = col_names.size();
+    new_index.tab_name = tab_name;
+    // 创建索引meta
+    for (auto &y : col_names) {
+        for (auto &x : table.cols) {
+            if (x.name == y) {
+                x.index = true;
+                new_index.cols.push_back(x);
+                continue;
             }
         }
-        // 没找到指定的索引！
-        if (new_index.cols.size() != new_index.col_num) {
-            throw InvalidColLengthError(new_index.col_num);
-        }
-        // 加载col len
-        new_index.col_tot_len = 0;
-        for (auto &x : new_index.cols) {
-            new_index.col_tot_len += x.len;
-        }
-
-        // 加载
-        ix_manager_->create_index(tab_name, new_index.cols);
-        table.indexes.push_back(new_index);
-
-        // 在ix_manager中进行管理
-        std::string index_name = ix_manager_->get_index_name(tab_name, col_names);
-        ihs_.emplace(
-            index_name, 
-            ix_manager_->open_index(tab_name, col_names)
-        );
-
-        // 将已经存在的record加入索引
-        char *key = new char[new_index.col_tot_len];
-        auto ix_hdl = ihs_.at(index_name).get();
-        auto file_hdl = fhs_.at(tab_name).get();
-        for (RmScan rm_scan(file_hdl); !rm_scan.is_end(); rm_scan.next()) {
-            auto rec = file_hdl->get_record(rm_scan.rid(), context);  
-            int offset = 0;
-            for(size_t i = 0; i < new_index.col_num; ++i) {
-                    memcpy(key + offset, rec->data + new_index.cols[i].offset, new_index.cols[i].len);
-                    offset += new_index.cols[i].len;
-                }
-            ix_hdl->insert_entry(key, rm_scan.rid(), context->txn_);
-        }
-
-        delete[] key;
-        flush_meta();
     }
-    else throw IndexEntryNotFoundError();
+    // 没找到指定的索引！
+    if (new_index.cols.size() != new_index.col_num) {
+        throw InvalidColLengthError(new_index.col_num);
+    }
+    // 加载col len
+    new_index.col_tot_len = 0;
+
+    // 加载
+    ix_manager_->create_index(tab_name, new_index.cols);
+    table.indexes.push_back(new_index);
+
+    // 在ix_manager中进行管理
+    std::string index_name = ix_manager_->get_index_name(tab_name, col_names);
+    ihs_.emplace(
+        index_name, 
+        ix_manager_->open_index(tab_name, col_names)
+    );
+
+    // 将已经存在的record加入索引
+    char *key = new char[new_index.col_tot_len];
+    auto ix_hdl = ihs_.at(index_name).get();
+    auto file_hdl = fhs_.at(tab_name).get();
+    for (RmScan rm_scan(file_hdl); !rm_scan.is_end(); rm_scan.next()) {
+        auto rec = file_hdl->get_record(rm_scan.rid(), context);  
+        int offset = 0;
+        for(size_t i = 0; i < new_index.col_num; ++i) {
+                memcpy(key + offset, rec->data + new_index.cols[i].offset, new_index.cols[i].len);
+                offset += new_index.cols[i].len;
+            }
+        ix_hdl->insert_entry(key, rm_scan.rid(), context->txn_);
+    }
+
+    delete[] key;
 }
 
 /**
@@ -309,8 +306,9 @@ void SmManager::create_index(const std::string& tab_name, const std::vector<std:
 void SmManager::drop_index(const std::string& tab_name, const std::vector<std::string>& col_names, Context* context) {
     if (db_.tabs_.find(tab_name) != db_.tabs_.end()) {
         TabMeta &table = db_.get_table(tab_name);
+
         if (! table.is_index(col_names)) {
-            throw RMDBError("index没找到！");
+            throw RMDBError("index not find!");
         }
         
         table.indexes.erase(table.get_index_meta(col_names));
@@ -318,8 +316,6 @@ void SmManager::drop_index(const std::string& tab_name, const std::vector<std::s
         ix_manager_->close_index(ihs_.at(index_name).get());
         ix_manager_->destroy_index(tab_name, col_names);
         ihs_.erase(ix_manager_->get_index_name(tab_name, col_names));
-
-        flush_meta();
     }
     else throw IndexEntryNotFoundError();
 }
@@ -339,7 +335,7 @@ void SmManager::drop_index(const std::string& tab_name, const std::vector<ColMet
         }
         // 查找index是否存在
         if (! table.is_index(col_names)) {
-            throw RMDBError("index没找到！");
+            throw RMDBError("index not find!");
         }
         
         table.indexes.erase(table.get_index_meta(col_names));
@@ -347,11 +343,9 @@ void SmManager::drop_index(const std::string& tab_name, const std::vector<ColMet
         ix_manager_->close_index(ihs_.at(index_name).get());
         ix_manager_->destroy_index(tab_name, col_names);
         ihs_.erase(ix_manager_->get_index_name(tab_name, col_names));
-        
-        flush_meta();
     }
     else throw IndexEntryNotFoundError();
-    
+
 }
 
 /**

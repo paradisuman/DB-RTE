@@ -81,14 +81,14 @@ class IndexScanExecutor : public AbstractExecutor {
                     break;
                 }
 
-                case TYPE_DATETIME : {
-                    /* fix */
-                    throw RMDBError("TYPE_DATETIME todo");
-                }
+                // case TYPE_DATETIME : {
+                //     /* fix */
+                //     throw RMDBError("TYPE_DATETIME todo");
+                // }
 
-                case TYPE_BIGINT : {
-                    throw RMDBError("TYPE_BIGINT todo");
-                }
+                // case TYPE_BIGINT : {
+                //     throw RMDBError("TYPE_BIGINT todo");
+                // }
 
                 default:{
                     throw InvalidTypeError();
