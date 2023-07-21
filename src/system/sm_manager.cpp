@@ -359,50 +359,33 @@ void SmManager::drop_index(const std::string& tab_name, const std::vector<ColMet
  * @param {Context*} context 
  */
 void SmManager::show_index(const std::string& tab_name, Context* context) {
-    // std::fstream outfile;
-    // outfile.open("output.txt", std::ios::out | std::ios::app);
-    // outfile << "| "<< tab_name <<" |\n";
-    // RecordPrinter printer(1);
-    // printer.print_separator(context);
-    // printer.print_record({"Tables"}, context);
-    // printer.print_separator(context);
-    // for (auto &entry : db_.tabs_) {
-    //     auto &tab = entry.second;
-    //     printer.print_record({tab.name}, context);
-    //     outfile << "| " << tab.name << " |\n";
-    // }
-    // printer.print_separator(context);
-    // outfile.close();
+    if (db_.tabs_.find(tab_name) == db_.tabs_.end())
+        throw IndexEntryNotFoundError();
 
-    if (db_.tabs_.find(tab_name) != db_.tabs_.end()) {
-        TabMeta &table = db_.get_table(tab_name);
-        // 查找index是否存在
-        std::vector<std::string> index_names;
+    TabMeta &table = db_.get_table(tab_name);
+    // 查找index是否存在
+    std::vector<std::string> index_names;
 
-        for (auto &index : table.indexes) {
-            std::vector<std::string> col_names;
-            std::string name;
-            for (auto &x : index.cols) {
-                name += x.name;
-                name += ",";
-            }
-            name.pop_back();
-            index_names.push_back(name);
+    for (auto &index : table.indexes) {
+        std::vector<std::string> col_names;
+        std::string name = "(";
+        for (auto &x : index.cols) {
+            name += x.name;
+            name += ",";
         }
-
-        std::fstream outfile;
-        outfile.open("output.txt", std::ios::out | std::ios::app);
-        RecordPrinter printer(3);
-        for (auto &x : index_names) {
-            outfile << "| "<< tab_name <<" | unique | (";
-            outfile << x <<")\n";
-            printer.print_separator(context);
-            printer.print_record({tab_name}, context);
-            printer.print_record({"unique"}, context);
-            printer.print_record({x}, context);
-            printer.print_separator(context);
-        }
-        outfile.close();
+        name.back() = ')';
+        index_names.push_back(name);
     }
-    else throw IndexEntryNotFoundError();
+
+    std::fstream outfile;
+    outfile.open("output.txt", std::ios::out | std::ios::app);
+    RecordPrinter printer(3);
+    printer.print_separator(context);
+    for (auto &x : index_names) {
+        outfile << "| "<< tab_name <<" | unique | ";
+        outfile << x <<" |\n";
+        printer.print_record({tab_name, "unique", x}, context);
+    }
+    printer.print_separator(context);
+    outfile.close();
 }

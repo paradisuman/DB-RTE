@@ -202,6 +202,7 @@ int IxNodeHandle::insert(const char *key, const Rid &value) {
     int old_size = get_size();
     // 如果已存在，不处理
     if (get_size() != 0 && ix_compare(get_key(get_index), key, file_hdr->col_types_, file_hdr->col_lens_) == 0) {
+        throw RMDBError("索引出错！");
         return old_size;
     }
     else {
