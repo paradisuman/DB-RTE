@@ -78,5 +78,5 @@ class SmManager {
     
     void drop_index(const std::string& tab_name, const std::vector<ColMeta>& col_names, Context* context);
 
-    void show_tables(const std::string& tab_name, const std::string& col_names, Context* context);
+    void show_index(const std::string& tab_name, Context* context);
 };

@@ -358,19 +358,51 @@ void SmManager::drop_index(const std::string& tab_name, const std::vector<ColMet
  * @description: 显示所有的表,通过测试需要将其结果写入到output.txt,详情看题目文档
  * @param {Context*} context 
  */
-void SmManager::show_index(const std::string& tab_name, const std::string& col_names, Context* context) {
-    std::fstream outfile;
-    outfile.open("output.txt", std::ios::out | std::ios::app);
-    outfile << "| Tables |\n";
-    RecordPrinter printer(1);
-    printer.print_separator(context);
-    printer.print_record({"Tables"}, context);
-    printer.print_separator(context);
-    for (auto &entry : db_.tabs_) {
-        auto &tab = entry.second;
-        printer.print_record({tab.name}, context);
-        outfile << "| " << tab.name << " |\n";
+void SmManager::show_index(const std::string& tab_name, Context* context) {
+    // std::fstream outfile;
+    // outfile.open("output.txt", std::ios::out | std::ios::app);
+    // outfile << "| "<< tab_name <<" |\n";
+    // RecordPrinter printer(1);
+    // printer.print_separator(context);
+    // printer.print_record({"Tables"}, context);
+    // printer.print_separator(context);
+    // for (auto &entry : db_.tabs_) {
+    //     auto &tab = entry.second;
+    //     printer.print_record({tab.name}, context);
+    //     outfile << "| " << tab.name << " |\n";
+    // }
+    // printer.print_separator(context);
+    // outfile.close();
+
+    if (db_.tabs_.find(tab_name) != db_.tabs_.end()) {
+        TabMeta &table = db_.get_table(tab_name);
+        // 查找index是否存在
+        std::vector<std::string> index_names;
+
+        for (auto &index : table.indexes) {
+            std::vector<std::string> col_names;
+            std::string name;
+            for (auto &x : index.cols) {
+                name += x.name;
+                name += ",";
+            }
+            name.pop_back();
+            index_names.push_back(name);
+        }
+
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+        RecordPrinter printer(3);
+        for (auto &x : index_names) {
+            outfile << "| "<< tab_name <<" | unique | (";
+            outfile << x <<")\n";
+            printer.print_separator(context);
+            printer.print_record({tab_name}, context);
+            printer.print_record({"unique"}, context);
+            printer.print_record({x}, context);
+            printer.print_separator(context);
+        }
+        outfile.close();
     }
-    printer.print_separator(context);
-    outfile.close();
+    else throw IndexEntryNotFoundError();
 }
