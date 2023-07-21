@@ -38,8 +38,9 @@ class InsertExecutor : public AbstractExecutor {
     };
 
     std::unique_ptr<RmRecord> Next() override {
-        // Make record buffer
         RmRecord rec(fh_->get_file_hdr().record_size);
+
+        // Make record buffer
         for (size_t i = 0; i < values_.size(); i++) {
             auto &col = tab_.cols[i];
             auto &val = values_[i];
@@ -51,20 +52,34 @@ class InsertExecutor : public AbstractExecutor {
         }
         // Insert into record file
         rid_ = fh_->insert_record(rec.data, context_);
-        
-        // Insert into index
+
+        std::vector<std::unique_ptr<char[]>> keys;
+        // 检查索引唯一性
         for(size_t i = 0; i < tab_.indexes.size(); ++i) {
             auto& index = tab_.indexes[i];
             auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-            char* key = new char[index.col_tot_len];
+            keys.emplace_back(new char[index.col_tot_len]);
+            auto key = keys.back().get();
             int offset = 0;
             for(size_t i = 0; i < index.col_num; ++i) {
                 memcpy(key + offset, rec.data + index.cols[i].offset, index.cols[i].len);
                 offset += index.cols[i].len;
             }
-            ih->insert_entry(key, rid_, context_->txn_);
-            delete[] key;
+            if (ih->is_key_exist(key, context_->txn_)) {
+                fh_->delete_record(rid_, context_);
+                throw RMDBError("index unique error!");
+            }
         }
+        // 插入索引
+        for(size_t i = 0; i < tab_.indexes.size(); ++i) {
+            auto &index = tab_.indexes[i];
+            auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
+            auto key = keys[i].get();
+            ih->insert_entry(key, rid_, context_->txn_);
+        }
+
+        
+
         return nullptr;
     }
     Rid &rid() override { return rid_; }

@@ -208,6 +208,8 @@ class IxIndexHandle {
 
     Iid leaf_begin() const;
 
+    bool is_key_exist(const char *key, Transaction *transaction);
+
 
    private:
     // 辅助函数

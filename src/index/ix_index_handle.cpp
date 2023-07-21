@@ -202,7 +202,7 @@ int IxNodeHandle::insert(const char *key, const Rid &value) {
     int old_size = get_size();
     // 如果已存在，不处理
     if (get_size() != 0 && ix_compare(get_key(get_index), key, file_hdr->col_types_, file_hdr->col_lens_) == 0) {
-        throw RMDBError("索引出错！");
+        //throw RMDBError("not unique!");
         return old_size;
     }
     else {
@@ -508,6 +508,7 @@ page_id_t IxIndexHandle::insert_entry(const char *key, const Rid &value, Transac
     // 提示：记得unpin page；若当前叶子节点是最右叶子节点，则需要更新file_hdr_.last_leaf；记得处理并发的上锁
     auto result = find_leaf_page(key, Operation::FIND, transaction, true);
     IxNodeHandle *leaf_node = result.first;
+
     if(leaf_node->get_size() == leaf_node->get_max_size()){
         // 如果满了先分裂，后插入
         IxNodeHandle *new_node = split(leaf_node);
@@ -522,41 +523,11 @@ page_id_t IxIndexHandle::insert_entry(const char *key, const Rid &value, Transac
         // 分裂情况可能会比较复杂，因此重新找点
         result = find_leaf_page(key, Operation::FIND, transaction, true);
         leaf_node = result.first;
-        // int pos = leaf_node->lower_bound(key);
-        
-        // // // 先更新父节点
-        // if (pos == 0 && !leaf_node->is_root_page()) {
-        //     IxNodeHandle *parent = fetch_node(leaf_node->get_parent_page_no());
-        //     update_node(
-        //         parent,
-        //         leaf_node,
-        //         key,
-        //         transaction
-        //     );
-
-        //     buffer_pool_manager_->unpin_page(parent->get_page_id(), true);
-        //     delete parent;
-        // }
         // 再更新子节点
         leaf_node->insert(key, value);
         maintain_parent(leaf_node);
     }
     else {
-        // int pos = leaf_node->lower_bound(key);
-        
-        // if (pos == 0 && !leaf_node->is_root_page()) {
-        //     IxNodeHandle *parent = fetch_node(leaf_node->get_parent_page_no());
-        //     int pos = parent->lower_bound(leaf_node->keys);
-        //     update_node(
-        //         parent,
-        //         leaf_node,
-        //         key,
-        //         transaction
-        //     );
-
-        //     buffer_pool_manager_->unpin_page(parent->get_page_id(), true);
-        //     delete parent;
-        // }
         leaf_node->insert(key, value);
         maintain_parent(leaf_node);
     }
@@ -1040,4 +1011,18 @@ void IxIndexHandle::update_node(IxNodeHandle *parent_node, IxNodeHandle *node, c
         //parent_node->set_rid(pos, {node->get_page_no(), -1});
     }
     
+}
+
+
+bool IxIndexHandle::is_key_exist(const char *key,  Transaction *transaction) {
+    auto result = find_leaf_page(key, Operation::FIND, transaction);
+    IxNodeHandle *leaf_node = result.first;
+    int key_num = leaf_node->page_hdr->num_key;
+    for(int i = 0;i<key_num;i++){
+        char *key_addr = leaf_node->get_key(i);
+        if(ix_compare(key, key_addr, leaf_node->file_hdr->col_types_, leaf_node->file_hdr->col_lens_) == 0) {
+            return true;
+        }
+    }
+    return false;
 }
