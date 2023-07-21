@@ -93,10 +93,10 @@ struct DescTable : public TreeNode {
     DescTable(std::string tab_name_) : tab_name(std::move(tab_name_)) {}
 };
 
-struct DescIndex : public TreeNode {
+struct ShowIndex : public TreeNode {
     std::string tab_name;
 
-    DescIndex(std::string tab_name_) : tab_name(std::move(tab_name_)) {}
+    ShowIndex(std::string tab_name_) : tab_name(std::move(tab_name_)) {}
 };
 
 struct CreateIndex : public TreeNode {
