@@ -90,24 +90,24 @@ class UpdateExecutor : public AbstractExecutor {
                 }
             }
 
-            // 删除索引
+            // 删除和插入索引
             for(size_t i = 0; i < tab_.indexes.size(); ++i) {
                 auto& index = tab_.indexes[i];
                 auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-                auto key = old_keys[i].get();
-                ih->delete_entry(key, context_->txn_);
+                auto old_key = old_keys[i].get();
+                auto new_key = new_keys[i].get();
+                // 相同的key就不用管了
+                if (strncmp(old_key, new_key, index.cols[i].len) == 0) {
+                    continue;
+                }
+                ih->delete_entry(old_key, context_->txn_);
+                // 更新记录
+                ih->insert_entry(new_key, rid, context_->txn_);
             }
 
-            // 插入索引
-            for(size_t i = 0; i < tab_.indexes.size(); ++i) {
-                auto& index = tab_.indexes[i];
-                auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-                auto key = new_keys[i].get();
-                ih->insert_entry(key, rid, context_->txn_);
-            }
-
-            // 更新记录
+            // 更新record
             fh_->update_record(rid, new_rcd.data, context_);
+
         }
         return nullptr;
     }
