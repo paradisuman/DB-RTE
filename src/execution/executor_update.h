@@ -65,20 +65,28 @@ class UpdateExecutor : public AbstractExecutor {
             }
             
 
-            std::vector<std::unique_ptr<char[]>> keys;
+            std::vector<std::unique_ptr<char[]>> new_keys;
+            std::vector<std::unique_ptr<char[]>> old_keys;
             // 检查索引唯一性
             for(size_t i = 0; i < tab_.indexes.size(); ++i) {
                 auto& index = tab_.indexes[i];
                 auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-                keys.emplace_back(new char[index.col_tot_len]);
-                auto key = keys.back().get();
+                new_keys.emplace_back(new char[index.col_tot_len]);
+                old_keys.emplace_back(new char[index.col_tot_len]);
+                auto key1 = new_keys.back().get();
+                auto key2 = old_keys.back().get();
                 int offset = 0;
                 for(size_t i = 0; i < index.col_num; ++i) {
-                    memcpy(key + offset, new_rcd.data + index.cols[i].offset, index.cols[i].len);
+                    memcpy(key1 + offset, new_rcd.data + index.cols[i].offset, index.cols[i].len);
                     offset += index.cols[i].len;
                 }
-                if (ih->is_key_exist(key, context_->txn_)) {
-                    throw RMDBError("index unique error!");
+                offset = 0;
+                for(size_t i = 0; i < index.col_num; ++i) {
+                    memcpy(key2 + offset, target_record->data + index.cols[i].offset, index.cols[i].len);
+                    offset += index.cols[i].len;
+                }
+                if (strncmp(key1, key2, index.cols[i].len) != 0 && ih->is_key_exist(key1, context_->txn_)) {
+                    throw RMDBError("update index unique error!");
                 }
             }
 
@@ -86,12 +94,7 @@ class UpdateExecutor : public AbstractExecutor {
             for(size_t i = 0; i < tab_.indexes.size(); ++i) {
                 auto& index = tab_.indexes[i];
                 auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-                char key[index.col_tot_len];
-                int offset = 0;
-                for(size_t i = 0; i < index.col_num; ++i) {
-                    memcpy(key + offset, target_record->data + index.cols[i].offset, index.cols[i].len);
-                    offset += index.cols[i].len;
-                }
+                auto key = old_keys[i].get();
                 ih->delete_entry(key, context_->txn_);
             }
 
@@ -99,7 +102,7 @@ class UpdateExecutor : public AbstractExecutor {
             for(size_t i = 0; i < tab_.indexes.size(); ++i) {
                 auto& index = tab_.indexes[i];
                 auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-                auto key = keys[i].get();
+                auto key = new_keys[i].get();
                 ih->insert_entry(key, rid, context_->txn_);
             }
 

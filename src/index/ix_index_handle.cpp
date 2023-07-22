@@ -166,7 +166,7 @@ void IxNodeHandle::insert_pairs(int pos, const char *key, const Rid *rid, int n)
     int old_size = get_size();
     if (pos < 0 || pos > old_size) {
         // 临时使用的throw，不一定契合
-        throw RMDBError("insert_pairs pos位置错误！");
+        throw RMDBError("insert_pairs pos wrong");
     }
     int key_len = file_hdr->col_tot_len_;
     int rid_len = sizeof(Rid);
@@ -227,7 +227,7 @@ void IxNodeHandle::erase_pair(int pos) {
     int num =  old_size - 1  - pos;
     if (pos < 0 || pos >= old_size) {
         // fix 临时使用的throw，不一定契合
-        throw RMDBError("erase_pair pos位置错误！");
+        throw RMDBError("erase_pair pos wrong!");
     }
 
     // 删除key
@@ -1021,8 +1021,10 @@ bool IxIndexHandle::is_key_exist(const char *key,  Transaction *transaction) {
     for(int i = 0;i<key_num;i++){
         char *key_addr = leaf_node->get_key(i);
         if(ix_compare(key, key_addr, leaf_node->file_hdr->col_types_, leaf_node->file_hdr->col_lens_) == 0) {
+            buffer_pool_manager_->unpin_page(leaf_node->get_page_id(), false);
             return true;
         }
     }
+    buffer_pool_manager_->unpin_page(leaf_node->get_page_id(), false);
     return false;
 }
