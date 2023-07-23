@@ -35,6 +35,45 @@ inline std::string to_string(datetime_t datetime) {
 //     return std::string(buffer);
 // }
 
+inline datetime_t to_bcd(std::string datetime) {
+    uint64_t year  = std::stoull(datetime.substr(0,  4));
+    uint64_t month = std::stoull(datetime.substr(5,  2));
+    uint64_t day   = std::stoull(datetime.substr(8,  2));
+    uint64_t hour  = std::stoull(datetime.substr(11, 2));
+    uint64_t min   = std::stoull(datetime.substr(14, 2));
+    uint64_t sec   = std::stoull(datetime.substr(17, 2));
+
+    if (
+        year  < 1000 || year  > 9999 ||
+        month < 1    || month > 12 ||
+        day   < 1    || day   > 31 ||
+        hour  < 0    || hour  > 23 ||
+        min   < 0    || min   > 59 ||
+        sec   < 0    || sec   > 59
+    ) {
+        throw InternalError("Illegal datatime.");
+    }
+
+    bool is_valid_day = [&] () {
+        if (month == 4 || month == 6 || month == 9 || month == 11) {
+            if (day > 30) return false;
+        } else if (month == 2) {
+            if (((year % 4) == 0 && (year % 100) == 0) || (year % 400 == 0)) {
+                if (day > 29) return false;
+            } else {
+                if (day > 28) return false;
+            }
+        }
+        return true;
+        // 已经判断过所有天数都不大于31 不再需要判断正常月份
+    } ();
+
+    if (!is_valid_day)
+        throw InternalError("Illegal datatime.");
+
+    return datetime;
+}
+
 // // 输入样例: 2023-05-30 12:34:32
 // inline uint64_t to_bcd(std::string datetime) {
 //     uint64_t year  = std::stoull(datetime.substr(0,  4));

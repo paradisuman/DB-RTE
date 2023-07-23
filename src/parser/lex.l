@@ -171,7 +171,7 @@ single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
     return VALUE_FLOAT;
 }
 {value_datetime} {
-    yylval->sv_datetime = std::string(yytext + 1, strlen(yytext) - 2);
+    yylval->sv_datetime = datetime::to_bcd(std::string(yytext + 1, strlen(yytext) - 2));
     return VALUE_DATETIME;
 }
 {value_string} {
