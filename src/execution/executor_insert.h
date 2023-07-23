@@ -78,7 +78,8 @@ class InsertExecutor : public AbstractExecutor {
             ih->insert_entry(key, rid_, context_->txn_);
         }
 
-        
+        WriteRecord *wr = new WriteRecord(WType::INSERT_TUPLE, tab_name_, rid_);
+        context_->txn_->append_write_record(wr);
 
         return nullptr;
     }

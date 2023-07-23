@@ -81,10 +81,11 @@ class IndexScanExecutor : public AbstractExecutor {
                     break;
                 }
 
-                // case TYPE_DATETIME : {
-                //     /* fix */
-                //     throw RMDBError("TYPE_DATETIME todo");
-                // }
+                case TYPE_DATETIME : {
+                    tem_max.set_datetime(std::numeric_limits<uint64_t>::max()); tem_max.init_raw(col.len);
+                    tem_min.set_datetime(0); tem_min.init_raw(col.len);
+                    break;
+                }
 
                 // case TYPE_BIGINT : {
                 //     throw RMDBError("TYPE_BIGINT todo");
@@ -180,8 +181,6 @@ class IndexScanExecutor : public AbstractExecutor {
     }
 
     void beginTuple() override {
-        static int cnt = 0;
-        cnt++;
         // 初步确定最大值和最小值
         RmRecord  max_key(index_meta_.col_tot_len), min_key(index_meta_.col_tot_len);
 

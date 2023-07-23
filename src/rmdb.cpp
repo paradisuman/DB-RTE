@@ -58,6 +58,7 @@ void sigint_handler(int signo) {
 // 判断当前正在执行的是显式事务还是单条SQL语句的事务，并更新事务ID
 void SetTransaction(txn_id_t *txn_id, Context *context) {
     context->txn_ = txn_manager->get_transaction(*txn_id);
+    // commit和abort表示要处理事务了
     if(context->txn_ == nullptr || context->txn_->get_state() == TransactionState::COMMITTED ||
         context->txn_->get_state() == TransactionState::ABORTED) {
         context->txn_ = txn_manager->begin(nullptr, context->log_mgr_);
@@ -116,7 +117,7 @@ void *client_handler(void *sock_fd) {
 
         // 开启事务，初始化系统所需的上下文信息（包括事务对象指针、锁管理器指针、日志管理器指针、存放结果的buffer、记录结果长度的变量）
         Context *context = new Context(lock_manager.get(), log_manager.get(), nullptr, data_send, &offset);
-        // SetTransaction(&txn_id, context);
+        SetTransaction(&txn_id, context);
 
         // 用于判断是否已经调用了yy_delete_buffer来删除buf
         bool finish_analyze = false;
@@ -203,10 +204,10 @@ CONTINUE: // SQL 语句解析失败
             break;
         }
         // // 如果是单挑语句，需要按照一个完整的事务来执行，所以执行完当前语句后，自动提交事务
-        // if(context->txn_->get_txn_mode() == false)
-        // {
-        //     txn_manager->commit(context->txn_, context->log_mgr_);
-        // }
+        if(context->txn_->get_txn_mode() == false)
+        {
+            txn_manager->commit(context->txn_, context->log_mgr_);
+        }
     }
 
     // Clear
