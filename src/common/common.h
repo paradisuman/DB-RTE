@@ -35,8 +35,8 @@ struct Value {
         int int_val;      // int value
         int64_t bigint_val; // bigint value
         float float_val;  // float value
-        datetime_t datetime_val; // datetime value
     };
+    datetime_t datetime_val; // datetime value
     std::string str_val;  // string value
 
     std::shared_ptr<RmRecord> raw;  // raw record buffer
@@ -63,7 +63,7 @@ struct Value {
 
     void set_datetime(datetime_t datetime_val_) {
         type = TYPE_DATETIME;
-        datetime_val = datetime_val_;
+        datetime_val = std::move(datetime_val_);
     }
 
     void init_raw(size_t len) {
@@ -82,8 +82,11 @@ struct Value {
             assert(len == sizeof(float));
             *(float *)(raw->data) = float_val;
         } else if (type == TYPE_DATETIME) {
-            assert(len == sizeof(datetime_t));
-            *(datetime_t *)(raw->data) = datetime_val;
+            if (len < str_val.size()) {
+                throw StringOverflowError();
+            }
+            memset(raw->data, 0, len);
+            memcpy(raw->data, datetime_val.c_str(), datetime_val.size());
         } else if (type >= TYPE_STRING) {
             if (len < str_val.size()) {
                 throw StringOverflowError();
@@ -105,8 +108,10 @@ struct Value {
             assert(len == sizeof(float));
             float_val = *(float *)(data);
         } else if (type == TYPE_DATETIME) {
-            assert(len == sizeof(datetime_t));
-            datetime_val = *(datetime_t *)(data);
+            if (len < str_val.size()) {
+                throw StringOverflowError();
+            }
+            datetime_val = std::string(data, len);
         } else if (type == TYPE_STRING) {
             if (len < str_val.size()) {
                 throw StringOverflowError();
@@ -135,8 +140,8 @@ const std::vector<std::set<ColType>> legal_binop = {
     /* [TYPE_INT]      = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
     /* [TYPE_FLOAT]    = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
     /* [TYPE_BIGINT]   = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
-    /* [TYPE_STRING]   = */ {TYPE_STRING},
-    /* [TYPE_DATETIME] = */ {TYPE_DATETIME},
+    /* [TYPE_STRING]   = */ {TYPE_DATETIME, TYPE_STRING},
+    /* [TYPE_DATETIME] = */ {TYPE_DATETIME, TYPE_STRING},
 };
 
 inline bool is_compatible_type(const ColType a, const ColType b) {
@@ -188,7 +193,7 @@ inline bool binop(const CompOp op, const Value &lval, const Value &rval) {
                             case TYPE_BIGINT : return _binop(lval.float_val, rval.bigint_val);
                             default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
                         }
-        case TYPE_DATETIME : return _binop(lval.datetime_val, rval.datetime_val);
+        case TYPE_DATETIME :
         case TYPE_STRING : return _str_binop(lval.str_val, rval.str_val);
         default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
     }

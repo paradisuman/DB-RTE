@@ -13,8 +13,9 @@ See the Mulan PSL v2 for more details. */
 #include <iostream>
 #include <map>
 #include <cstdint>
+#include <string>
 
-typedef uint64_t datetime_t;
+typedef std::string datetime_t;
 
 // 此处重载了<<操作符，在ColMeta中进行了调用
 template<typename T, typename = typename std::enable_if<std::is_enum<T>::value, T>::type>
