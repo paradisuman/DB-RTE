@@ -107,12 +107,12 @@ single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
                           int_min[] = "2147483648";
     const size_t num_len = strlen(yytext);
     // 返回 int
-    auto is_int = [&] mutable {
+    auto is_int = [&] () mutable {
         yylval->sv_int = atoi(yytext);
         return VALUE_INT;
     };
     // 返回 bigint
-    auto is_bigint = [&] mutable {
+    auto is_bigint = [&] () mutable {
         yylval->sv_bigint = std::stoll(yytext);
         return VALUE_BIGINT;
     };
