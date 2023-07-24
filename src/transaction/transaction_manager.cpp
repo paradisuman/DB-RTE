@@ -25,13 +25,13 @@ Transaction * TransactionManager::begin(Transaction* txn, LogManager* log_manage
     // 1. 判断传入事务参数是否为空指针
     // 2. 如果为空指针，创建新事务
     if (txn == nullptr) {
-        txn_id_t new_id = next_txn_id_.fetch_add(1);
-        txn = new Transaction(new_id);
+        txn = new Transaction(next_txn_id_);
+        next_txn_id_++;
     } 
 
     // 3. 把开始事务加入到全局事务表中
-    timestamp_t new_ts = next_timestamp_.fetch_add(1);
-    txn->set_start_ts(new_ts);
+    // timestamp_t new_ts = next_timestamp_.fetch_add(1);
+    // txn->set_start_ts(new_ts);
     txn_id_t id = txn->get_transaction_id();
 
     txn_map.emplace(id, txn);
@@ -47,13 +47,13 @@ Transaction * TransactionManager::begin(Transaction* txn, LogManager* log_manage
 void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
     // Todo:
     // 1. 如果存在未提交的写操作，提交所有的写操作
-    auto write_set_ = txn->get_write_set();
-    while (!write_set_->empty()) {
-        auto x = write_set_->back();
-        // 确保栈内存被释放
-        delete x;
-        write_set_->pop_back();
-    }
+    // auto write_set_ = txn->get_write_set();
+    // while (!write_set_->empty()) {
+    //     auto x = write_set_->back();
+    //     // 确保栈内存被释放
+    //     delete x;
+    //     write_set_->pop_back();
+    // }
     // auto write_set_ = txn->get_write_set();
     // for (auto &wr : *write_set_) {
     //     // 1.Todo 目前commit不修改内存，abort直接进行内存操作 将内存写回磁盘
@@ -70,6 +70,10 @@ void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
     // }
     // 2. 释放所有锁
     // Todo:
+    auto lock_set = txn->get_lock_set();
+    for (auto &lock: *lock_set) {
+		lock_manager_->unlock(txn, lock);
+	}
     // 3. 释放事务相关资源，eg.锁集
     // Todo:
     // 4. 把事务日志刷入磁盘中
@@ -198,10 +202,18 @@ void TransactionManager::abort(Transaction * txn, LogManager *log_manager) {
         }
         else throw RMDBError("No transaction type exists");
         // 释放资源
-        delete wr;
         write_set_->pop_back();
+        delete wr;
     }
+    write_set_->clear();
     // 2. 释放所有锁
+    auto lock_set = txn->get_lock_set();
+	for (auto &lock: *lock_set) {
+		lock_manager_->unlock(txn, lock);
+	}
+	// clean related resource
+	lock_set->clear();
+
     // 3. 清空事务相关资源，eg.锁集
     // 4. 把事务日志刷入磁盘中
     // 5. 更新事务状态
