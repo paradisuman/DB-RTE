@@ -48,7 +48,12 @@ void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
     // Todo:
     // 1. 如果存在未提交的写操作，提交所有的写操作
     auto write_set_ = txn->get_write_set();
-    write_set_->clear();
+    while (!write_set_->empty()) {
+        auto x = write_set_->back();
+        // 确保栈内存被释放
+        delete x;
+        write_set_->pop_back();
+    }
     // auto write_set_ = txn->get_write_set();
     // for (auto &wr : *write_set_) {
     //     // 1.Todo 目前commit不修改内存，abort直接进行内存操作 将内存写回磁盘
@@ -70,7 +75,7 @@ void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
     // 4. 把事务日志刷入磁盘中
     // Todo:
     // 5. 更新事务状态
-    txn->set_state(TransactionState::DEFAULT);
+    txn->set_state(TransactionState::COMMITTED);
 }
 
 /**
@@ -200,5 +205,5 @@ void TransactionManager::abort(Transaction * txn, LogManager *log_manager) {
     // 3. 清空事务相关资源，eg.锁集
     // 4. 把事务日志刷入磁盘中
     // 5. 更新事务状态
-    txn->set_state(TransactionState::DEFAULT);
+    txn->set_state(TransactionState::ABORTED);
 }
