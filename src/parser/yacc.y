@@ -204,7 +204,7 @@ type:
     }
     |   DATETIME
     {
-        $$ = std::make_shared<TypeLen>(SV_TYPE_DATETIME, sizeof(datetime_t));
+        $$ = std::make_shared<TypeLen>(SV_TYPE_DATETIME, 20);
     }
     ;
 
