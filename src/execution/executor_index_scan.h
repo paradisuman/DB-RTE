@@ -189,7 +189,7 @@ class IndexScanExecutor : public AbstractExecutor {
 
         // 建立一个迭代器，每次选择迭代一个
         auto min_ = ih_->lower_bound(min_key.data);
-        auto max_ = ih_->upper_bound(min_key.data);
+        auto max_ = ih_->upper_bound(max_key.data);
         scan_ = std::make_unique<IxScan>(
             ih_,
             min_,
