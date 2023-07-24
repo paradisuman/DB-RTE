@@ -193,8 +193,16 @@ inline bool binop(const CompOp op, const Value &lval, const Value &rval) {
                             case TYPE_BIGINT : return _binop(lval.float_val, rval.bigint_val);
                             default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
                         }
-        case TYPE_DATETIME :
-        case TYPE_STRING : return _str_binop(lval.str_val, rval.str_val);
+        case TYPE_DATETIME : switch (rval.type) {
+                            case TYPE_STRING    : return _str_binop(lval.datetime_val, rval.str_val);
+                            case TYPE_DATETIME  : return _str_binop(lval.datetime_val, rval.datetime_val);
+                            default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
+                        }
+        case TYPE_STRING : switch (rval.type) {
+                            case TYPE_STRING    : return _str_binop(lval.str_val, rval.str_val);
+                            case TYPE_DATETIME  : return _str_binop(lval.str_val, rval.datetime_val);
+                            default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
+                        }
         default : throw IncompatibleTypeError(coltype2str(lval.type), coltype2str(rval.type));
     }
 }

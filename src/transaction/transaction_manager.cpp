@@ -47,13 +47,13 @@ Transaction * TransactionManager::begin(Transaction* txn, LogManager* log_manage
 void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
     // Todo:
     // 1. 如果存在未提交的写操作，提交所有的写操作
-    // auto write_set_ = txn->get_write_set();
-    // while (!write_set_->empty()) {
-    //     auto x = write_set_->back();
-    //     // 确保栈内存被释放
-    //     delete x;
-    //     write_set_->pop_back();
-    // }
+    auto write_set_ = txn->get_write_set();
+    while (!write_set_->empty()) {
+        auto x = write_set_->back();
+        // 确保栈内存被释放
+        delete x;
+        write_set_->pop_back();
+    }
     // auto write_set_ = txn->get_write_set();
     // for (auto &wr : *write_set_) {
     //     // 1.Todo 目前commit不修改内存，abort直接进行内存操作 将内存写回磁盘
