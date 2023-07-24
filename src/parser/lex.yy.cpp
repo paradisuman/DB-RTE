@@ -1,6 +1,6 @@
-#line 2 "/home/titanium/code/project/db2023/rmdb/src/parser/lex.yy.cpp"
+#line 2 "/home/pa/db/db2023-runtimeterror/src/parser/lex.yy.cpp"
 
-#line 4 "/home/titanium/code/project/db2023/rmdb/src/parser/lex.yy.cpp"
+#line 4 "/home/pa/db/db2023-runtimeterror/src/parser/lex.yy.cpp"
 
 #define  YY_INT_ALIGNED short int
 
@@ -649,9 +649,9 @@ char *yytext;
         } \
     }
 
-#line 653 "/home/titanium/code/project/db2023/rmdb/src/parser/lex.yy.cpp"
+#line 653 "/home/pa/db/db2023-runtimeterror/src/parser/lex.yy.cpp"
 
-#line 655 "/home/titanium/code/project/db2023/rmdb/src/parser/lex.yy.cpp"
+#line 655 "/home/pa/db/db2023-runtimeterror/src/parser/lex.yy.cpp"
 
 #define INITIAL 0
 #define STATE_COMMENT 1
@@ -889,7 +889,7 @@ YY_DECL
 
 #line 52 "lex.l"
     /* block comment */
-#line 893 "/home/titanium/code/project/db2023/rmdb/src/parser/lex.yy.cpp"
+#line 893 "/home/pa/db/db2023-runtimeterror/src/parser/lex.yy.cpp"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -1257,7 +1257,7 @@ case 47:
 YY_RULE_SETUP
 #line 174 "lex.l"
 {
-    yylval->sv_datetime = datetime::to_bcd(std::string(yytext + 1));
+    yylval->sv_datetime = datetime::to_bcd(std::string(yytext + 1, strlen(yytext) - 2));
     return VALUE_DATETIME;
 }
 	YY_BREAK
@@ -1287,7 +1287,7 @@ YY_RULE_SETUP
 #line 186 "lex.l"
 ECHO;
 	YY_BREAK
-#line 1291 "/home/titanium/code/project/db2023/rmdb/src/parser/lex.yy.cpp"
+#line 1291 "/home/pa/db/db2023-runtimeterror/src/parser/lex.yy.cpp"
 
 	case YY_END_OF_BUFFER:
 		{

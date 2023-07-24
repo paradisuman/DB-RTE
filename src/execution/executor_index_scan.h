@@ -82,8 +82,8 @@ class IndexScanExecutor : public AbstractExecutor {
                 }
 
                 case TYPE_DATETIME : {
-                    tem_max.set_datetime(std::numeric_limits<uint64_t>::max()); tem_max.init_raw(col.len);
-                    tem_min.set_datetime(0); tem_min.init_raw(col.len);
+                    tem_max.set_datetime("9999-12-31 23:59:59"); tem_max.init_raw(col.len);
+                    tem_min.set_datetime("1000-01-01 00:00:00"); tem_min.init_raw(col.len);
                     break;
                 }
 
