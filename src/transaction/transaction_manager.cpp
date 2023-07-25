@@ -105,11 +105,11 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
         const auto &tab_name = wr.GetTableName();
         const auto &tab = sm_manager_->db_.get_table(tab_name);
         const auto &fh = sm_manager_->fhs_.at(tab_name);
-        const auto &prev_rec = fh->get_record(prev_rid, &context);
 
         // 回滚具体操作
         switch (wr.GetWriteType()) {
             case WType::INSERT_TUPLE : {
+                const auto &delete_rec = fh->get_record(prev_rid, &context);
                 // 回滚删除索引
                 for (const auto &index : tab.indexes) {
                     const auto &index_name = sm_manager_->get_ix_manager()->get_index_name(tab_name, index.cols);
@@ -118,7 +118,7 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
                     auto key = std::make_unique<char[]>(index.col_tot_len);
                     size_t offset = 0;
                     for (const auto &col : index.cols) {
-                        std::copy_n(prev_rec->data + col.offset, col.len, key.get() + offset);
+                        std::copy_n(delete_rec->data + col.offset, col.len, key.get() + offset);
                         offset += col.offset;
                     }
                     ih->delete_entry(key.get(), txn);
@@ -129,7 +129,8 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
             }
             case WType::DELETE_TUPLE : {
                 // 回滚插入记录 记录回滚时插入的位置
-                const auto new_rid = fh->insert_record(prev_rec->data, &context);
+                const auto &insert_rec = wr.GetRecord();
+                const auto new_rid = fh->insert_record(insert_rec.data, &context);
                 // 回滚插入索引
                 for (const auto &index : tab.indexes) {
                     const auto &index_name = sm_manager_->get_ix_manager()->get_index_name(tab_name, index.cols);
@@ -138,7 +139,7 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
                     auto key = std::make_unique<char[]>(index.col_tot_len);
                     size_t offset = 0;
                     for (const auto &col : index.cols) {
-                        std::copy_n(prev_rec->data + col.offset, col.len, key.get() + offset);
+                        std::copy_n(insert_rec.data + col.offset, col.len, key.get() + offset);
                         offset += col.offset;
                     }
                     // 记录回滚时插入的位置
@@ -147,9 +148,10 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
                 break;
             }
             case WType::UPDATE_TUPLE : {
-                const auto &new_rec = fh->get_record(prev_rid, &context);
+                const auto &insert_rec = wr.GetRecord();
+                const auto &rid_rec = fh->get_record(prev_rid, &context);
                 // 回滚修改记录
-                fh->update_record(prev_rid, prev_rec->data, &context);
+                fh->update_record(prev_rid, insert_rec.data, &context);
                 // 回滚修改索引
                 for (const auto &index : tab.indexes) {
                     const auto &index_name = sm_manager_->get_ix_manager()->get_index_name(tab_name, index.cols);
@@ -159,15 +161,15 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
                     auto old_key = std::make_unique<char[]>(index.col_tot_len);
                     size_t offset = 0;
                     for (const auto &col : index.cols) {
-                        std::copy_n(new_rec->data  + col.offset, col.len, new_key.get() + offset);
-                        std::copy_n(prev_rec->data + col.offset, col.len, old_key.get() + offset);
+                        std::copy_n(rid_rec->data  + col.offset, col.len, new_key.get() + offset);
+                        std::copy_n(insert_rec.data + col.offset, col.len, old_key.get() + offset);
                         offset += col.offset;
                     }
 
                     if (std::memcmp(new_key.get(), old_key.get(), index.col_tot_len) == 0)
                         continue;
-                    ih->delete_entry(old_key.get(), txn);
-                    ih->insert_entry(new_key.get(), prev_rid, txn);
+                    ih->delete_entry(new_key.get(), txn);
+                    ih->insert_entry(old_key.get(), prev_rid, txn);
                 }
                 break;
             }

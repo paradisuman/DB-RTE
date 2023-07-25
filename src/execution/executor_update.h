@@ -102,8 +102,8 @@ class UpdateExecutor : public AbstractExecutor {
 
             // 更新record
             fh_->update_record(rid, new_rcd.data, context_);
-
-            WriteRecord *wr = new WriteRecord(WType::UPDATE_TUPLE, tab_name_, rid, new_rcd);
+            
+            WriteRecord *wr = new WriteRecord(WType::UPDATE_TUPLE, tab_name_, rid, *target_record);
             context_->txn_->append_write_record(wr);
         }
         return nullptr;
