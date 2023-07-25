@@ -31,6 +31,13 @@ inline int ix_compare(const char *a, const char *b, ColType type, int col_len) {
         }
         case TYPE_STRING:
             return memcmp(a, b, col_len);
+        case TYPE_DATETIME:
+            return memcmp(a, b, col_len);
+        case TYPE_BIGINT: {
+            int64_t ia = *(int64_t *)a;
+            int64_t ib = *(int64_t *)b;
+            return (ia < ib) ? -1 : ((ia > ib) ? 1 : 0);
+        }
         default:
             throw InternalError("Unexpected data type");
     }
