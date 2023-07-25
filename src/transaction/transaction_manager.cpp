@@ -70,10 +70,10 @@ void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
     // }
     // 2. 释放所有锁
     // Todo:
-    auto lock_set = txn->get_lock_set();
-    for (auto &lock: *lock_set) {
-		lock_manager_->unlock(txn, lock);
-	}
+    // auto lock_set = txn->get_lock_set();
+    // for (auto &lock: *lock_set) {
+	// 	lock_manager_->unlock(txn, lock);
+	// }
     // 3. 释放事务相关资源，eg.锁集
     // Todo:
     // 4. 把事务日志刷入磁盘中
@@ -87,10 +87,11 @@ void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
  * @param {Transaction *} txn 需要回滚的事务
  * @param {LogManager} *log_manager 日志管理器指针
  */
-void TransactionManager::abort(Transaction * txn, LogManager *log_manager) {
+void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
     // Todo:
     // 1. 回滚所有写操作
     auto write_set_ = txn->get_write_set();
+    Context context(lock_manager_, log_manager, txn);
     while (!write_set_->empty()) {
         // 1.Todo 目前commit不修改内存，abort直接进行内存操作 将内存写回磁盘
         // 2.Todo 目前commit不修改索引，abort直接进行索引操作 将索引写回磁盘
@@ -101,7 +102,7 @@ void TransactionManager::abort(Transaction * txn, LogManager *log_manager) {
         if (wr->GetWriteType() == WType::INSERT_TUPLE) {
             auto tab_ = sm_manager_->db_.get_table(tab_name_);
             auto fh_ = sm_manager_->fhs_.at(tab_name_).get();
-            auto rec = fh_->get_record(pre_rid_, nullptr);
+            auto rec = fh_->get_record(pre_rid_, &context);
 
             for(size_t i = 0; i < tab_.indexes.size(); ++i) {
                 IndexMeta& index = tab_.indexes[i];
@@ -112,18 +113,18 @@ void TransactionManager::abort(Transaction * txn, LogManager *log_manager) {
                     memcpy(key + offset, rec->data + index.cols[i].offset, index.cols[i].len);
                     offset += index.cols[i].len;
                 }
-                ih->delete_entry(key, nullptr);
+                ih->delete_entry(key, txn);
             }
 
              // 删除record
-            fh_->delete_record(pre_rid_, nullptr);
+            fh_->delete_record(pre_rid_, &context);
         }
         else if (wr->GetWriteType() == WType::DELETE_TUPLE) {
             auto tab_ = sm_manager_->db_.get_table(tab_name_);
             auto fh_ = sm_manager_->fhs_.at(tab_name_).get();
             RmRecord pre_record_ = wr->GetRecord();
             // Insert into record file
-            fh_->insert_record(pre_record_.data, nullptr);
+            fh_->insert_record(pre_record_.data, &context);
 
             std::vector<std::unique_ptr<char[]>> keys;
             // 检查索引唯一性
@@ -137,8 +138,8 @@ void TransactionManager::abort(Transaction * txn, LogManager *log_manager) {
                     memcpy(key + offset, pre_record_.data + index.cols[i].offset, index.cols[i].len);
                     offset += index.cols[i].len;
                 }
-                if (ih->is_key_exist(key, nullptr)) {
-                    fh_->delete_record(pre_rid_, nullptr);
+                if (ih->is_key_exist(key, txn)) {
+                    fh_->delete_record(pre_rid_, &context);
                     throw RMDBError("index unique error!");
                 }
             }
@@ -147,14 +148,14 @@ void TransactionManager::abort(Transaction * txn, LogManager *log_manager) {
                 auto &index = tab_.indexes[i];
                 auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
                 auto key = keys[i].get();
-                ih->insert_entry(key, pre_rid_, nullptr);
+                ih->insert_entry(key, pre_rid_, txn);
             }
         }
         else if (wr->GetWriteType() == WType::UPDATE_TUPLE) {
             RmRecord pre_record_ = wr->GetRecord();
             auto tab_ = sm_manager_->db_.get_table(tab_name_);
             auto fh_ = sm_manager_->fhs_.at(tab_name_).get();
-            auto target_record = fh_->get_record(pre_rid_, nullptr);
+            auto target_record = fh_->get_record(pre_rid_, &context);
             RmRecord new_rcd = pre_record_;
 
             std::vector<std::unique_ptr<char[]>> new_keys;
@@ -177,7 +178,7 @@ void TransactionManager::abort(Transaction * txn, LogManager *log_manager) {
                     memcpy(key2 + offset, target_record->data + index.cols[i].offset, index.cols[i].len);
                     offset += index.cols[i].len;
                 }
-                if (strncmp(key1, key2, index.cols[i].len) != 0 && ih->is_key_exist(key1, nullptr)) {
+                if (strncmp(key1, key2, index.cols[i].len) != 0 && ih->is_key_exist(key1, txn)) {
                     throw RMDBError("update index unique error!");
                 }
             }
@@ -192,13 +193,13 @@ void TransactionManager::abort(Transaction * txn, LogManager *log_manager) {
                 if (strncmp(old_key, new_key, index.cols[i].len) == 0) {
                     continue;
                 }
-                ih->delete_entry(old_key, nullptr);
+                ih->delete_entry(old_key, txn);
                 // 更新记录
-                ih->insert_entry(new_key, pre_rid_, nullptr);
+                ih->insert_entry(new_key, pre_rid_, txn);
             }
 
             // 更新record
-            fh_->update_record(pre_rid_, new_rcd.data, nullptr);
+            fh_->update_record(pre_rid_, new_rcd.data, &context);
         }
         else throw RMDBError("No transaction type exists");
         // 释放资源
