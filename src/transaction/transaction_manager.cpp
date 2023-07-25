@@ -90,130 +90,99 @@ void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
 void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
     // Todo:
     // 1. 回滚所有写操作
-    auto write_set_ = txn->get_write_set();
-    Context context(lock_manager_, log_manager, txn);
-    while (!write_set_->empty()) {
-        // 1.Todo 目前commit不修改内存，abort直接进行内存操作 将内存写回磁盘
-        // 2.Todo 目前commit不修改索引，abort直接进行索引操作 将索引写回磁盘
-        auto wr = write_set_->back();
-        Rid pre_rid_ = wr->GetRid();
-        std::string tab_name_ = wr->GetTableName();
-        // Todo 这里context,以及其成员等都直接使用了nullptr
-        if (wr->GetWriteType() == WType::INSERT_TUPLE) {
-            auto tab_ = sm_manager_->db_.get_table(tab_name_);
-            auto fh_ = sm_manager_->fhs_.at(tab_name_).get();
-            auto rec = fh_->get_record(pre_rid_, &context);
-
-            for(size_t i = 0; i < tab_.indexes.size(); ++i) {
-                IndexMeta& index = tab_.indexes[i];
-                IxIndexHandle *ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-                char key[index.col_tot_len];
-                int offset = 0;
-                for(size_t i = 0; i < index.col_num; ++i) {
-                    memcpy(key + offset, rec->data + index.cols[i].offset, index.cols[i].len);
-                    offset += index.cols[i].len;
-                }
-                ih->delete_entry(key, txn);
-            }
-
-             // 删除record
-            fh_->delete_record(pre_rid_, &context);
-        }
-        else if (wr->GetWriteType() == WType::DELETE_TUPLE) {
-            auto tab_ = sm_manager_->db_.get_table(tab_name_);
-            auto fh_ = sm_manager_->fhs_.at(tab_name_).get();
-            RmRecord pre_record_ = wr->GetRecord();
-            // Insert into record file
-            fh_->insert_record(pre_record_.data, &context);
-
-            std::vector<std::unique_ptr<char[]>> keys;
-            // 检查索引唯一性
-            for(size_t i = 0; i < tab_.indexes.size(); ++i) {
-                auto& index = tab_.indexes[i];
-                auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-                keys.emplace_back(new char[index.col_tot_len]);
-                auto key = keys.back().get();
-                int offset = 0;
-                for(size_t i = 0; i < index.col_num; ++i) {
-                    memcpy(key + offset, pre_record_.data + index.cols[i].offset, index.cols[i].len);
-                    offset += index.cols[i].len;
-                }
-                if (ih->is_key_exist(key, txn)) {
-                    fh_->delete_record(pre_rid_, &context);
-                    throw RMDBError("index unique error!");
-                }
-            }
-            // 插入索引
-            for(size_t i = 0; i < tab_.indexes.size(); ++i) {
-                auto &index = tab_.indexes[i];
-                auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-                auto key = keys[i].get();
-                ih->insert_entry(key, pre_rid_, txn);
-            }
-        }
-        else if (wr->GetWriteType() == WType::UPDATE_TUPLE) {
-            RmRecord pre_record_ = wr->GetRecord();
-            auto tab_ = sm_manager_->db_.get_table(tab_name_);
-            auto fh_ = sm_manager_->fhs_.at(tab_name_).get();
-            auto target_record = fh_->get_record(pre_rid_, &context);
-            RmRecord new_rcd = pre_record_;
-
-            std::vector<std::unique_ptr<char[]>> new_keys;
-            std::vector<std::unique_ptr<char[]>> old_keys;
-            // 检查索引唯一性
-            for(size_t i = 0; i < tab_.indexes.size(); ++i) {
-                auto& index = tab_.indexes[i];
-                auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-                new_keys.emplace_back(new char[index.col_tot_len]);
-                old_keys.emplace_back(new char[index.col_tot_len]);
-                auto key1 = new_keys.back().get();
-                auto key2 = old_keys.back().get();
-                int offset = 0;
-                for(size_t i = 0; i < index.col_num; ++i) {
-                    memcpy(key1 + offset, new_rcd.data + index.cols[i].offset, index.cols[i].len);
-                    offset += index.cols[i].len;
-                }
-                offset = 0;
-                for(size_t i = 0; i < index.col_num; ++i) {
-                    memcpy(key2 + offset, target_record->data + index.cols[i].offset, index.cols[i].len);
-                    offset += index.cols[i].len;
-                }
-                if (strncmp(key1, key2, index.cols[i].len) != 0 && ih->is_key_exist(key1, txn)) {
-                    throw RMDBError("update index unique error!");
-                }
-            }
-
-            // 删除和插入索引
-            for(size_t i = 0; i < tab_.indexes.size(); ++i) {
-                auto& index = tab_.indexes[i];
-                auto ih = sm_manager_->ihs_.at(sm_manager_->get_ix_manager()->get_index_name(tab_name_, index.cols)).get();
-                auto old_key = old_keys[i].get();
-                auto new_key = new_keys[i].get();
-                // 相同的key就不用管了
-                if (strncmp(old_key, new_key, index.cols[i].len) == 0) {
-                    continue;
-                }
-                ih->delete_entry(old_key, txn);
-                // 更新记录
-                ih->insert_entry(new_key, pre_rid_, txn);
-            }
-
-            // 更新record
-            fh_->update_record(pre_rid_, new_rcd.data, &context);
-        }
-        else throw RMDBError("No transaction type exists");
-        // 释放资源
-        write_set_->pop_back();
-        delete wr;
-    }
-    write_set_->clear();
     // 2. 释放所有锁
-    auto lock_set = txn->get_lock_set();
-	for (auto &lock: *lock_set) {
-		lock_manager_->unlock(txn, lock);
-	}
+    // 3. 清空事务相关资源，eg.锁集
+    // 4. 把事务日志刷入磁盘中
+    // 5. 更新事务状态
+
+    Context context(lock_manager_, log_manager, txn);
+
+    // 1. 回滚所有写操作
+    auto write_set = txn->get_write_set();
+    while (!write_set->empty()) {
+        const auto &wr = *write_set->back();
+        const auto &prev_rid = wr.GetRid();
+        const auto &tab_name = wr.GetTableName();
+        const auto &tab = sm_manager_->db_.get_table(tab_name);
+        const auto &fh = sm_manager_->fhs_.at(tab_name);
+        const auto &prev_rec = fh->get_record(prev_rid, &context);
+
+        // 回滚具体操作
+        switch (wr.GetWriteType()) {
+            case WType::INSERT_TUPLE : {
+                // 回滚删除索引
+                for (const auto &index : tab.indexes) {
+                    const auto &index_name = sm_manager_->get_ix_manager()->get_index_name(tab_name, index.cols);
+                    const auto &ih = sm_manager_->ihs_.at(index_name);
+
+                    auto key = std::make_unique<char[]>(index.col_tot_len);
+                    size_t offset = 0;
+                    for (const auto &col : index.cols) {
+                        std::copy_n(prev_rec->data + col.offset, col.len, key.get() + offset);
+                        offset += col.offset;
+                    }
+                    ih->delete_entry(key.get(), txn);
+                }
+                // 回滚删除记录
+                fh->delete_record(prev_rid, &context);
+                break;
+            }
+            case WType::DELETE_TUPLE : {
+                // 回滚插入记录 记录回滚时插入的位置
+                const auto new_rid = fh->insert_record(prev_rec->data, &context);
+                // 回滚插入索引
+                for (const auto &index : tab.indexes) {
+                    const auto &index_name = sm_manager_->get_ix_manager()->get_index_name(tab_name, index.cols);
+                    const auto &ih = sm_manager_->ihs_.at(index_name);
+
+                    auto key = std::make_unique<char[]>(index.col_tot_len);
+                    size_t offset = 0;
+                    for (const auto &col : index.cols) {
+                        std::copy_n(prev_rec->data + col.offset, col.len, key.get() + offset);
+                        offset += col.offset;
+                    }
+                    // 记录回滚时插入的位置
+                    ih->insert_entry(key.get(), new_rid, txn);
+                }
+                break;
+            }
+            case WType::UPDATE_TUPLE : {
+                const auto &new_rec = fh->get_record(prev_rid, &context);
+                // 回滚修改记录
+                fh->update_record(prev_rid, prev_rec->data, &context);
+                // 回滚修改索引
+                for (const auto &index : tab.indexes) {
+                    const auto &index_name = sm_manager_->get_ix_manager()->get_index_name(tab_name, index.cols);
+                    const auto &ih = sm_manager_->ihs_.at(index_name);
+
+                    auto new_key = std::make_unique<char[]>(index.col_tot_len);
+                    auto old_key = std::make_unique<char[]>(index.col_tot_len);
+                    size_t offset = 0;
+                    for (const auto &col : index.cols) {
+                        std::copy_n(new_rec->data  + col.offset, col.len, new_key.get() + offset);
+                        std::copy_n(prev_rec->data + col.offset, col.len, old_key.get() + offset);
+                        offset += col.offset;
+                    }
+
+                    if (std::memcmp(new_key.get(), old_key.get(), index.col_tot_len) == 0)
+                        continue;
+                    ih->delete_entry(old_key.get(), txn);
+                    ih->insert_entry(new_key.get(), prev_rid, txn);
+                }
+                break;
+            }
+        } // end of switch (wr.GetWriteType())
+        delete write_set->back();
+        write_set->pop_back();
+    } // end of while (!write_set->empty())
+    
+    // 2. 释放所有锁
+    // auto lock_set = txn->get_lock_set();
+	// for (auto &lock: *lock_set) {
+	// 	lock_manager_->unlock(txn, lock);
+	// }
 	// clean related resource
-	lock_set->clear();
+	// lock_set->clear();
 
     // 3. 清空事务相关资源，eg.锁集
     // 4. 把事务日志刷入磁盘中

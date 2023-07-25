@@ -58,6 +58,14 @@ class WriteRecord {
 
     inline std::string &GetTableName() { return tab_name_; }
 
+    inline const RmRecord &GetRecord() const { return record_; }
+
+    inline const Rid &GetRid() const { return rid_; }
+
+    inline const WType &GetWriteType() const { return wtype_; }
+
+    inline const std::string &GetTableName() const { return tab_name_; }
+
    private:
     WType wtype_;
     std::string tab_name_;
