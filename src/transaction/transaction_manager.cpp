@@ -119,7 +119,7 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
                     size_t offset = 0;
                     for (const auto &col : index.cols) {
                         std::copy_n(delete_rec->data + col.offset, col.len, key.get() + offset);
-                        offset += col.offset;
+                        offset += col.len;
                     }
                     ih->delete_entry(key.get(), txn);
                 }
@@ -140,7 +140,7 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
                     size_t offset = 0;
                     for (const auto &col : index.cols) {
                         std::copy_n(insert_rec.data + col.offset, col.len, key.get() + offset);
-                        offset += col.offset;
+                        offset += col.len;
                     }
                     // 记录回滚时插入的位置
                     ih->insert_entry(key.get(), new_rid, txn);
@@ -161,9 +161,9 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
                     auto old_key = std::make_unique<char[]>(index.col_tot_len);
                     size_t offset = 0;
                     for (const auto &col : index.cols) {
-                        std::copy_n(rid_rec->data  + col.offset, col.len, new_key.get() + offset);
+                        std::copy_n(rid_rec->data + col.offset, col.len, new_key.get() + offset);
                         std::copy_n(insert_rec.data + col.offset, col.len, old_key.get() + offset);
-                        offset += col.offset;
+                        offset += col.len;
                     }
 
                     if (std::memcmp(new_key.get(), old_key.get(), index.col_tot_len) == 0)
