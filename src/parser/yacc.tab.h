@@ -35,8 +35,8 @@
    especially those whose name start with YY_ or yy_.  They are
    private implementation details that can be changed or removed.  */
 
-#ifndef YY_YY_HOME_PA_DB_DB2023_RUNTIMETERROR_SRC_PARSER_YACC_TAB_H_INCLUDED
-# define YY_YY_HOME_PA_DB_DB2023_RUNTIMETERROR_SRC_PARSER_YACC_TAB_H_INCLUDED
+#ifndef YY_YY_HOME_TITANIUM_CODE_PROJECT_DB2023_RMDB_SRC_PARSER_YACC_TAB_H_INCLUDED
+# define YY_YY_HOME_TITANIUM_CODE_PROJECT_DB2023_RMDB_SRC_PARSER_YACC_TAB_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -73,9 +73,9 @@ extern int yydebug;
     SET = 274,                     /* SET  */
     SELECT = 275,                  /* SELECT  */
     INT = 276,                     /* INT  */
-    BIGINT = 277,                  /* BIGINT  */
-    CHAR = 278,                    /* CHAR  */
-    FLOAT = 279,                   /* FLOAT  */
+    CHAR = 277,                    /* CHAR  */
+    FLOAT = 278,                   /* FLOAT  */
+    BIGINT = 279,                  /* BIGINT  */
     DATETIME = 280,                /* DATETIME  */
     INDEX = 281,                   /* INDEX  */
     AND = 282,                     /* AND  */
@@ -87,16 +87,21 @@ extern int yydebug;
     TXN_ABORT = 288,               /* TXN_ABORT  */
     TXN_ROLLBACK = 289,            /* TXN_ROLLBACK  */
     ORDER_BY = 290,                /* ORDER_BY  */
-    LEQ = 291,                     /* LEQ  */
-    NEQ = 292,                     /* NEQ  */
-    GEQ = 293,                     /* GEQ  */
-    T_EOF = 294,                   /* T_EOF  */
-    IDENTIFIER = 295,              /* IDENTIFIER  */
-    VALUE_STRING = 296,            /* VALUE_STRING  */
-    VALUE_INT = 297,               /* VALUE_INT  */
-    VALUE_BIGINT = 298,            /* VALUE_BIGINT  */
-    VALUE_FLOAT = 299,             /* VALUE_FLOAT  */
-    VALUE_DATETIME = 300           /* VALUE_DATETIME  */
+    COUNT = 291,                   /* COUNT  */
+    MAX = 292,                     /* MAX  */
+    MIN = 293,                     /* MIN  */
+    SUM = 294,                     /* SUM  */
+    AS = 295,                      /* AS  */
+    LEQ = 296,                     /* LEQ  */
+    NEQ = 297,                     /* NEQ  */
+    GEQ = 298,                     /* GEQ  */
+    T_EOF = 299,                   /* T_EOF  */
+    IDENTIFIER = 300,              /* IDENTIFIER  */
+    VALUE_STRING = 301,            /* VALUE_STRING  */
+    VALUE_INT = 302,               /* VALUE_INT  */
+    VALUE_BIGINT = 303,            /* VALUE_BIGINT  */
+    VALUE_FLOAT = 304,             /* VALUE_FLOAT  */
+    VALUE_DATETIME = 305           /* VALUE_DATETIME  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -123,4 +128,4 @@ struct YYLTYPE
 int yyparse (void);
 
 
-#endif /* !YY_YY_HOME_PA_DB_DB2023_RUNTIMETERROR_SRC_PARSER_YACC_TAB_H_INCLUDED  */
+#endif /* !YY_YY_HOME_TITANIUM_CODE_PROJECT_DB2023_RMDB_SRC_PARSER_YACC_TAB_H_INCLUDED  */
