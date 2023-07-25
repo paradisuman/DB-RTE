@@ -89,6 +89,7 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
             if (!is_compatible_type(lhs_type, rhs_type)) {
                 throw IncompatibleTypeError(coltype2str(lhs_type), coltype2str(rhs_type));
             }
+            val.init_raw(col->len);
             query->set_clauses.push_back(SetClause {sel_col, val});
         }
 
