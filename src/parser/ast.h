@@ -14,6 +14,8 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 #include "defs.h"
 
+#include "defs.h"
+
 enum JoinType {
     INNER_JOIN, LEFT_JOIN, RIGHT_JOIN, FULL_JOIN
 };
@@ -31,6 +33,10 @@ enum OrderByDir {
     OrderBy_DEFAULT,
     OrderBy_ASC,
     OrderBy_DESC
+};
+
+enum AggregateType {
+    SV_NONE, SV_COUNT, SV_MAX, SV_MIN, SV_SUM
 };
 
 // Base class for tree nodes
@@ -229,17 +235,22 @@ struct SelectStmt : public TreeNode {
     std::vector<std::shared_ptr<BinaryExpr>> conds;
     std::vector<std::shared_ptr<JoinExpr>> jointree;
 
-    
     bool has_sort;
     std::shared_ptr<OrderBy> order;
+
+    AggregateType aggregate_type;
+    std::string alias;
 
 
     SelectStmt(std::vector<std::shared_ptr<Col>> cols_,
                std::vector<std::string> tabs_,
                std::vector<std::shared_ptr<BinaryExpr>> conds_,
-               std::shared_ptr<OrderBy> order_) :
+               std::shared_ptr<OrderBy> order_,
+               AggregateType aggregate_type_ = SV_NONE,
+               std::string alias_ = std::string()) :
             cols(std::move(cols_)), tabs(std::move(tabs_)), conds(std::move(conds_)), 
-            order(std::move(order_)) {
+            order(std::move(order_)),
+            aggregate_type(aggregate_type_), alias(std::move(alias_)) {
                 has_sort = (bool)order;
             }
 };
@@ -279,6 +290,8 @@ struct SemValue {
     std::vector<std::shared_ptr<BinaryExpr>> sv_conds;
 
     std::shared_ptr<OrderBy> sv_orderby;
+
+    AggregateType sv_aggregate_type;
 };
 
 extern std::shared_ptr<ast::TreeNode> parse_tree;

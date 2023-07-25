@@ -35,6 +35,8 @@ class Query{
     // insert 的values值
     std::vector<Value> values;
 
+    bool is_all = false;
+
     Query() {}
 
 };

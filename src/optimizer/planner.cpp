@@ -132,7 +132,7 @@ std::shared_ptr<Plan> Planner::physical_optimization(std::shared_ptr<Query> quer
     // 其他物理优化
 
     // 处理orderby
-    plan = generate_sort_plan(query, std::move(plan)); 
+    // plan = generate_sort_plan(query, std::move(plan)); 
 
     return plan;
 }
@@ -285,9 +285,13 @@ std::shared_ptr<Plan> Planner::generate_select_plan(std::shared_ptr<Query> query
 
     //物理优化
     auto sel_cols = query->cols;
-    std::shared_ptr<Plan> plannerRoot = physical_optimization(query, context);
-    plannerRoot = std::make_shared<ProjectionPlan>(T_Projection, std::move(plannerRoot), 
-                                                        std::move(sel_cols));
+    auto subplan = physical_optimization(query, context);
+
+    auto plannerRoot = std::make_shared<ProjectionPlan>(
+        T_Projection,
+        std::move(subplan), 
+        std::move(sel_cols)
+    );
 
     return plannerRoot;
 }
@@ -366,10 +370,28 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query, Context 
     } else if (auto x = std::dynamic_pointer_cast<ast::SelectStmt>(query->parse)) {
         // select;
         std::shared_ptr<plannerInfo> root = std::make_shared<plannerInfo>(x);
+        bool is_all = query->is_all;
         // 生成select语句的查询执行计划
         std::shared_ptr<Plan> projection = generate_select_plan(std::move(query), context);
-        plannerRoot = std::make_shared<DMLPlan>(T_select, projection, std::string(), std::vector<Value>(),
-                                                    std::vector<Condition>(), std::vector<SetClause>());
+        PlanTag tag;
+        switch (x->aggregate_type) {
+            case (ast::SV_NONE):  tag = T_select;       break;
+            case (ast::SV_COUNT): tag = T_select_count; break;
+            case (ast::SV_MAX):   tag = T_select_max;   break;
+            case (ast::SV_MIN):   tag = T_select_min;   break;
+            case (ast::SV_SUM):   tag = T_select_sum;   break;
+            default: throw InternalError("Unkown aggregate type.");
+        }
+        plannerRoot = std::make_shared<DMLPlan>(
+            tag,
+            projection,
+            std::string(),
+            std::vector<Value>(),
+            std::vector<Condition>(),
+            std::vector<SetClause>(),
+            x->alias,
+            is_all
+        );
     } else {
         throw InternalError("Unexpected AST root");
     }

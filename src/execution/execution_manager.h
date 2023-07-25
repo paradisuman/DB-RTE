@@ -25,6 +25,14 @@ See the Mulan PSL v2 for more details. */
 #include "executor_abstract.h"
 #include "transaction/transaction_manager.h"
 
+enum SelectTag {
+    ONE_SELECT,
+    SELECT_WITH_COUNT,
+    SELECT_WITH_UNIQUE_COUNT,
+    SELECT_WITH_MAX,
+    SELECT_WITH_MIN,
+    SELECT_WITH_SUM,
+};
 
 class QlManager {
    private:
@@ -37,7 +45,7 @@ class QlManager {
 
     void run_mutli_query(std::shared_ptr<Plan> plan, Context *context);
     void run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Context *context);
-    void select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, std::vector<TabCol> sel_cols,
+    void select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, std::vector<TabCol> sel_cols, SelectTag tag,
                         Context *context);
 
     void run_dml(std::unique_ptr<AbstractExecutor> exec);

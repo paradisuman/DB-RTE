@@ -65,6 +65,17 @@ private:
         return m.at(op);
     }
 
+    static std::string aggregate2str(AggregateType agg) {
+        static std::map<AggregateType, std::string> m{
+                {SV_COUNT,  "COUNT"},
+                {SV_MAX,    "MAX"},
+                {SV_MIN,    "MIN"},
+                {SV_SUM,    "SUM"},
+        };
+        return m.at(agg);
+    }
+
+
     template<typename T>
     static void print_node_list(std::vector<T> nodes, int offset) {
         std::cout << offset2string(offset);
@@ -158,9 +169,23 @@ private:
             print_node_list(x->conds, offset);
         } else if (auto x = std::dynamic_pointer_cast<SelectStmt>(node)) {
             std::cout << "SELECT\n";
-            print_node_list(x->cols, offset);
-            print_val_list(x->tabs, offset);
-            print_node_list(x->conds, offset);
+            if (x->aggregate_type == ast::AggregateType::SV_NONE) {
+                print_node_list(x->cols, offset);
+                print_val_list(x->tabs, offset);
+                print_node_list(x->conds, offset);
+                print_val(x->order, offset);
+            } else {
+                print_val(
+                    aggregate2str(x->aggregate_type) + ' '
+                        + (x->cols.empty() ? "*" : x->cols.front()->tab_name)  + '.'
+                        + (x->cols.empty() ? "*" : x->cols.front()->col_name)  + " AS " + x->alias,
+                    offset
+                );
+                print_val_list(x->tabs, offset);
+                print_node_list(x->conds, offset);
+                print_val(x->order, offset);
+            }
+
         } else if (auto x = std::dynamic_pointer_cast<TxnBegin>(node)) {
             std::cout << "BEGIN\n";
         } else if (auto x = std::dynamic_pointer_cast<TxnCommit>(node)) {

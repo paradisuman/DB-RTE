@@ -9,6 +9,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 #include "execution_manager.h"
+#include "errors.h"
 
 #include "executor_delete.h"
 #include "executor_index_scan.h"
@@ -134,8 +135,8 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Co
 }
 
 // 执行select语句，select语句的输出除了需要返回客户端外，还需要写入output.txt文件中
-void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, std::vector<TabCol> sel_cols, 
-                            Context *context) {
+void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, std::vector<TabCol> sel_cols, SelectTag tag,
+                        Context *context) {
     std::vector<std::string> captions;
     captions.reserve(sel_cols.size());
     for (auto &sel_col : sel_cols) {
@@ -144,56 +145,317 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
 
     // Print header into buffer
     RecordPrinter rec_printer(sel_cols.size());
-    rec_printer.print_separator(context);
-    rec_printer.print_record(captions, context);
-    rec_printer.print_separator(context);
-    // print header into file
-    std::fstream outfile;
-    outfile.open("output.txt", std::ios::out | std::ios::app);
-    outfile << "|";
-    for(size_t i = 0; i < captions.size(); ++i) {
-        outfile << " " << captions[i] << " |";
-    }
-    outfile << "\n";
+    switch (tag) {
+    case (ONE_SELECT) : {
+        rec_printer.print_separator(context);
+        rec_printer.print_record(captions, context);
+        rec_printer.print_separator(context);
+        // print header into file
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+        outfile << "|";
+        for(size_t i = 0; i < captions.size(); ++i) {
+            outfile << " " << captions[i] << " |";
+        }
+        outfile << "\n";
 
-    // Print records
-    size_t num_rec = 0;
-    // 执行query_plan
-    for (executorTreeRoot->beginTuple(); !executorTreeRoot->is_end(); executorTreeRoot->nextTuple()) {
-        auto Tuple = executorTreeRoot->Next();
-        std::vector<std::string> columns;
-        for (auto &col : executorTreeRoot->cols()) {
+        // Print records
+        size_t num_rec = 0;
+        // 执行query_plan
+        for (executorTreeRoot->beginTuple(); !executorTreeRoot->is_end(); executorTreeRoot->nextTuple()) {
+            auto Tuple = executorTreeRoot->Next();
+            std::vector<std::string> columns;
+            for (auto &col : executorTreeRoot->cols()) {
+                std::string col_str;
+                char *rec_buf = Tuple->data + col.offset;
+                if (col.type == TYPE_INT) {
+                    col_str = std::to_string(*(int *)rec_buf);
+                } else if (col.type == TYPE_FLOAT) {
+                    col_str = std::to_string(*(float *)rec_buf);
+                } else if (col.type == TYPE_DATETIME) {
+                    col_str = datetime::to_string(*(datetime_t *)rec_buf);
+                } else if (col.type == TYPE_STRING) {
+                    col_str = std::string((char *)rec_buf, col.len);
+                    col_str.resize(strlen(col_str.c_str()));
+                }
+                columns.push_back(col_str);
+            }
+            // print record into buffer
+            rec_printer.print_record(columns, context);
+            // print record into file
+            outfile << "|";
+            for(size_t i = 0; i < columns.size(); ++i) {
+                outfile << " " << columns[i] << " |";
+            }
+            outfile << "\n";
+            num_rec++;
+        }
+        outfile.close();
+        // Print footer into buffer
+        rec_printer.print_separator(context);
+        // Print record count into buffer
+        RecordPrinter::print_record_count(num_rec, context);
+        return;
+    }
+    case (SELECT_WITH_UNIQUE_COUNT) :
+    case (SELECT_WITH_COUNT) : {
+        rec_printer.print_separator(context);
+        rec_printer.print_record(captions, context);
+        rec_printer.print_separator(context);
+        // print header into file
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+        outfile << "|";
+        for(size_t i = 0; i < captions.size(); ++i) {
+            outfile << " " << captions[i] << " |";
+        }
+        outfile << "\n";
+
+        // Print records
+        size_t num_rec = 0;
+        // 执行query_plan
+        for (executorTreeRoot->beginTuple(); !executorTreeRoot->is_end(); executorTreeRoot->nextTuple()) {
+            num_rec++;
+        }
+        // print record into buffer
+        rec_printer.print_record({std::to_string(num_rec)}, context);
+        // print record into file
+        outfile << "|" << " " << std::to_string(num_rec) << " |" << '\n';
+        outfile.close();
+        // Print footer into buffer
+        rec_printer.print_separator(context);
+        // Print record count into buffer
+        RecordPrinter::print_record_count(1, context);
+        return;
+    }
+    case (-1) : {
+    // case (SELECT_WITH_UNIQUE_COUNT) : {
+        rec_printer.print_separator(context);
+        rec_printer.print_record(captions, context);
+        rec_printer.print_separator(context);
+        // print header into file
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+        outfile << "|";
+        for(size_t i = 0; i < captions.size(); ++i) {
+            outfile << " " << captions[i] << " |";
+        }
+        outfile << "\n";
+
+        std::set<std::string> counter;
+        const auto &col = executorTreeRoot->cols().front();
+        // 执行query_plan
+        for (executorTreeRoot->beginTuple(); !executorTreeRoot->is_end(); executorTreeRoot->nextTuple()) {
+            auto Tuple = executorTreeRoot->Next();
+            std::vector<std::string> columns;
+    
             std::string col_str;
             char *rec_buf = Tuple->data + col.offset;
             if (col.type == TYPE_INT) {
                 col_str = std::to_string(*(int *)rec_buf);
-            } else if (col.type == TYPE_BIGINT) {
-                col_str = std::to_string(*(int64_t *)rec_buf);
             } else if (col.type == TYPE_FLOAT) {
                 col_str = std::to_string(*(float *)rec_buf);
             } else if (col.type == TYPE_DATETIME) {
-                col_str = std::string((char *) rec_buf, col.len);
+                col_str = datetime::to_string(*(datetime_t *)rec_buf);
             } else if (col.type == TYPE_STRING) {
                 col_str = std::string((char *)rec_buf, col.len);
                 col_str.resize(strlen(col_str.c_str()));
             }
-            columns.push_back(col_str);
+            counter.insert(col_str);
         }
         // print record into buffer
-        rec_printer.print_record(columns, context);
+        rec_printer.print_record({std::to_string(counter.size())}, context);
         // print record into file
+        outfile << "|" << " " << std::to_string(counter.size()) << " |" << '\n';
+        outfile.close();
+        // Print footer into buffer
+        rec_printer.print_separator(context);
+        // Print record count into buffer
+        RecordPrinter::print_record_count(counter.size(), context);
+        return;
+    }
+    // MAX()
+    case (SELECT_WITH_MAX) : {
+        rec_printer.print_separator(context);
+        rec_printer.print_record(captions, context);
+        rec_printer.print_separator(context);
+        // print header into file
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
         outfile << "|";
-        for(size_t i = 0; i < columns.size(); ++i) {
-            outfile << " " << columns[i] << " |";
+        for(size_t i = 0; i < captions.size(); ++i) {
+            outfile << " " << captions[i] << " |";
         }
         outfile << "\n";
-        num_rec++;
+
+        const auto &col = executorTreeRoot->cols().front();
+        // Print records
+        size_t num_rec = 0;
+        // 执行query_plan
+        std::unique_ptr<RmRecord> Tuple;
+        Value val;
+        val.type = col.type;
+        val.type = col.type;
+        if (col.type == TYPE_INT)
+            val.int_val = 0;
+        else if (col.type == TYPE_FLOAT)
+            val.float_val = 0;
+        else if (col.type == TYPE_STRING)
+            val.str_val = std::string();
+        for (executorTreeRoot->beginTuple(); !executorTreeRoot->is_end(); executorTreeRoot->nextTuple()) {
+            auto tempTuple = executorTreeRoot->Next();
+            Value tempVal;
+            tempVal.type = col.type;
+            tempVal.load_raw(col.len, tempTuple->data + col.offset);
+            if (!Tuple.get()) {
+                Tuple = std::move(tempTuple);
+                val = tempVal;
+                continue;
+            }
+            if (binop(OP_LT, val, tempVal)) {
+                Tuple = std::move(tempTuple);
+                val = tempVal;
+            }
+            num_rec++;
+        }
+        if (Tuple.get()) {
+            std::vector<std::string> columns;
+            switch (col.type) {
+                case TYPE_INT : columns.push_back(std::to_string(*(int *)Tuple->data)); break;
+                case TYPE_FLOAT : columns.push_back(std::to_string(*(float *)Tuple->data)); break;
+                case TYPE_STRING : columns.push_back(std::string((char *)Tuple->data, col.len)); break;
+                default : throw InternalError("Unsupported type.");
+            }
+            // print record into buffer
+            rec_printer.print_record(columns, context);
+            // print record into file
+            outfile << "|";
+            for(size_t i = 0; i < columns.size(); ++i) {
+                outfile << " " << columns[i] << " |";
+            }
+            outfile << "\n";
+        }
+        // Print footer into buffer
+        rec_printer.print_separator(context);
+        // Print record count into buffer
+        RecordPrinter::print_record_count(1, context);
+        return;
     }
-    outfile.close();
-    // Print footer into buffer
-    rec_printer.print_separator(context);
-    // Print record count into buffer
-    RecordPrinter::print_record_count(num_rec, context);
+    // MIN()
+    case (SELECT_WITH_MIN) : {
+        rec_printer.print_separator(context);
+        rec_printer.print_record(captions, context);
+        rec_printer.print_separator(context);
+        // print header into file
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+        outfile << "|";
+        for(size_t i = 0; i < captions.size(); ++i) {
+            outfile << " " << captions[i] << " |";
+        }
+        outfile << "\n";
+
+        const auto &col = executorTreeRoot->cols().front();
+        // Print records
+        size_t num_rec = 0;
+        // 执行query_plan
+        std::unique_ptr<RmRecord> Tuple;
+        Value val;
+        val.type = col.type;
+        if (col.type == TYPE_INT)
+            val.int_val = 0;
+        else if (col.type == TYPE_FLOAT)
+            val.float_val = 0;
+        else if (col.type == TYPE_STRING)
+            val.str_val = std::string();
+        for (executorTreeRoot->beginTuple(); !executorTreeRoot->is_end(); executorTreeRoot->nextTuple()) {
+            auto tempTuple = executorTreeRoot->Next();
+            Value tempVal;
+            tempVal.type = col.type;
+            tempVal.load_raw(col.len, tempTuple->data + col.offset);
+            if (!Tuple.get()) {
+                Tuple = std::move(tempTuple);
+                val = tempVal;
+                continue;
+            }
+            if (binop(OP_GT, val, tempVal)) {
+                Tuple = std::move(tempTuple);
+                val = tempVal;
+            }
+            num_rec++;
+        }
+        if (Tuple.get()) {
+            std::vector<std::string> columns;
+            switch (col.type) {
+                case TYPE_INT : columns.push_back(std::to_string(*(int *)Tuple->data)); break;
+                case TYPE_FLOAT : columns.push_back(std::to_string(*(float *)Tuple->data)); break;
+                case TYPE_STRING : columns.push_back(std::string((char *)Tuple->data, col.len)); break;
+                default : throw InternalError("Unsupported type.");
+            }
+            // print record into buffer
+            rec_printer.print_record(columns, context);
+            // print record into file
+            outfile << "|";
+            for(size_t i = 0; i < columns.size(); ++i) {
+                outfile << " " << columns[i] << " |";
+            }
+            outfile << "\n";
+        }
+        // Print footer into buffer
+        rec_printer.print_separator(context);
+        // Print record count into buffer
+        RecordPrinter::print_record_count(1, context);
+        return;
+    }
+    case (SELECT_WITH_SUM) : {
+        rec_printer.print_separator(context);
+        rec_printer.print_record(captions, context);
+        rec_printer.print_separator(context);
+        // print header into file
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+        outfile << "|";
+        for(size_t i = 0; i < captions.size(); ++i) {
+            outfile << " " << captions[i] << " |";
+        }
+        outfile << "\n";
+
+        const auto &col = executorTreeRoot->cols().front();
+        Value sum;
+        sum.type = col.type;
+        if (col.type == TYPE_INT)
+            sum.int_val = 0;
+        else if (col.type == TYPE_FLOAT)
+            sum.float_val = 0;
+        // 执行query_plan
+        for (executorTreeRoot->beginTuple(); !executorTreeRoot->is_end(); executorTreeRoot->nextTuple()) {
+            auto Tuple = executorTreeRoot->Next();
+            Value val;
+            val.type = col.type;
+            val.load_raw(col.len, Tuple->data);
+            if (col.type == TYPE_INT) {
+                sum.int_val += val.int_val;
+            } else if (col.type == TYPE_FLOAT) {
+                sum.float_val += val.float_val;
+            }
+        }
+        // print record into buffer
+        if (col.type == TYPE_INT) {
+            rec_printer.print_record({std::to_string(sum.int_val)}, context);
+            outfile << "|" << " " << std::to_string(sum.int_val) << " |" << '\n';
+        } else if (col.type == TYPE_FLOAT) {
+            rec_printer.print_record({std::to_string(sum.float_val)}, context);
+            outfile << "|" << " " << std::to_string(sum.float_val) << " |" << '\n';
+        }
+        outfile.close();
+        // Print footer into buffer
+        rec_printer.print_separator(context);
+        // Print record count into buffer
+        RecordPrinter::print_record_count(1, context);
+        return;
+    }
+    default : throw InternalError("Unkown portal tag.");
+    }
 }
 
 // 执行DML语句
