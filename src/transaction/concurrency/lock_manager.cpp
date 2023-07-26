@@ -95,7 +95,7 @@ bool LockManager::lock_exclusive_on_record(Transaction* txn, const Rid& rid, int
         );
     }
 
-    auto request = LockRequest(txn->get_transaction_id(), LockMode::EXLUCSIVE);
+    auto request = LockRequest(txn->get_transaction_id(), LockMode::EXCLUSIVE);
     auto &request_queue = lock_table_[lockdata_id];
 
     const auto txn_itr = std::find_if(
@@ -104,11 +104,11 @@ bool LockManager::lock_exclusive_on_record(Transaction* txn, const Rid& rid, int
         [&] (const LockRequest &req) { return txn->get_transaction_id() == req.txn_id_; }
     );
     if (txn_itr != request_queue.request_queue_.end()) {
-        if (txn_itr->lock_mode_ == LockMode::INTENTION_EXCLUSIVE)
+        if (txn_itr->lock_mode_ == LockMode::EXCLUSIVE)
             return true;
-        if (txn_itr->lock_mode_ == LockMode::SHARED && request_queue.request_queue_.size() == 1) {
-            txn_itr->lock_mode_ = LockMode::EXLUCSIVE;
-            request_queue.group_lock_mode_ = GroupLockMode::S;
+        if (request_queue.group_lock_mode_ == GroupLockMode::S && request_queue.request_queue_.size() == 1) {
+            txn_itr->lock_mode_ = LockMode::EXCLUSIVE;
+            request_queue.group_lock_mode_ = GroupLockMode::X;
             return true;
         }
         throw TransactionAbortException(txn->get_transaction_id(), AbortReason::DEADLOCK_PREVENTION);
@@ -211,7 +211,7 @@ bool LockManager::lock_exclusive_on_table(Transaction* txn, int tab_fd) {
         );
     }
 
-    auto request = LockRequest(txn->get_transaction_id(), LockMode::EXLUCSIVE);
+    auto request = LockRequest(txn->get_transaction_id(), LockMode::EXCLUSIVE);
     auto &request_queue = lock_table_[lockdata_id];
 
     const auto txn_itr = std::find_if(
@@ -220,11 +220,11 @@ bool LockManager::lock_exclusive_on_table(Transaction* txn, int tab_fd) {
         [&] (const LockRequest &req) { return txn->get_transaction_id() == req.txn_id_; }
     );
     if (txn_itr != request_queue.request_queue_.end()) {
-        if (txn_itr->lock_mode_ == LockMode::EXLUCSIVE)
+        if (txn_itr->lock_mode_ == LockMode::EXCLUSIVE)
             return true;
         if (request_queue.request_queue_.size() != 1)
             throw TransactionAbortException(txn->get_transaction_id(), AbortReason::DEADLOCK_PREVENTION);
-        txn_itr->lock_mode_ = LockMode::EXLUCSIVE;
+        txn_itr->lock_mode_ = LockMode::EXCLUSIVE;
         request_queue.group_lock_mode_ = GroupLockMode::X;
         return true;
     }
@@ -314,7 +314,7 @@ bool LockManager::lock_IX_on_table(Transaction* txn, int tab_fd) {
         [&] (const LockRequest &req) { return txn->get_transaction_id() == req.txn_id_; }
     );
     if (txn_itr != request_queue.request_queue_.end()) {
-        if (txn_itr->lock_mode_ == LockMode::INTENTION_EXCLUSIVE || txn_itr->lock_mode_ == LockMode::S_IX || txn_itr->lock_mode_ == LockMode::EXLUCSIVE)
+        if (txn_itr->lock_mode_ == LockMode::INTENTION_EXCLUSIVE || txn_itr->lock_mode_ == LockMode::S_IX || txn_itr->lock_mode_ == LockMode::EXCLUSIVE)
             return true;
         if (txn_itr->lock_mode_ == LockMode::SHARED) {
             size_t s_cnt = std::count_if(
@@ -380,7 +380,7 @@ bool LockManager::unlock(Transaction* txn, LockDataId lock_data_id) {
     for (const auto &req : request_queue.request_queue_)
         lockmode_cnt[req.lock_mode_] += 1;
 
-    if (lockmode_cnt[LockMode::EXLUCSIVE])
+    if (lockmode_cnt[LockMode::EXCLUSIVE])
         request_queue.group_lock_mode_ = GroupLockMode::X;
     else if (lockmode_cnt[LockMode::S_IX])
         request_queue.group_lock_mode_ = GroupLockMode::SIX;
