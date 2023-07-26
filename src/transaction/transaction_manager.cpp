@@ -59,9 +59,9 @@ void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
 		lock_manager_->unlock(txn, lock);
 	}
     // 3. 释放事务相关资源，eg.锁集
-    lock_set.reset();
-    index_latch_page_set_.reset();
-    index_deleted_page_set_.reset();
+    txn->get_lock_set().reset();
+    txn->get_index_latch_page_set().reset();
+    txn->get_index_deleted_page_set().reset();
     // 4. 把事务日志刷入磁盘中
     // Todo:
     // 5. 更新事务状态
@@ -165,14 +165,13 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
     } // end of while (!write_set->empty())
 
     // 2. 释放所有锁
-    auto lock_set = txn->get_lock_set();
-	for (auto &lock: *lock_set) {
+	for (auto &lock: *txn->get_lock_set()) {
 		lock_manager_->unlock(txn, lock);
 	}
     // 3. 清空事务相关资源，eg.锁集
-	lock_set.reset();
-    index_latch_page_set_.reset();
-    index_deleted_page_set_.reset();
+	txn->get_lock_set().reset();
+    txn->get_index_latch_page_set().reset();
+    txn->get_index_deleted_page_set().reset();
     // 4. 把事务日志刷入磁盘中
     // 5. 更新事务状态
     txn->set_state(TransactionState::ABORTED);
