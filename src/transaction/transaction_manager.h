@@ -52,7 +52,7 @@ public:
     Transaction* get_transaction(txn_id_t txn_id) {
         if(txn_id == INVALID_TXN_ID) return nullptr;
         
-        std::unique_lock<std::mutex> lock(latch_);
+        std::unique_lock<std::mutex> lock{latch_};
         assert(TransactionManager::txn_map.find(txn_id) != TransactionManager::txn_map.end());
         auto *res = TransactionManager::txn_map[txn_id];
         lock.unlock();
