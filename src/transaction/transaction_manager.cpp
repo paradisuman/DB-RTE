@@ -24,6 +24,7 @@ Transaction * TransactionManager::begin(Transaction* txn, LogManager* log_manage
     // Todo:
     // 1. 判断传入事务参数是否为空指针
     // 2. 如果为空指针，创建新事务
+    std::scoped_lock lock{latch_};
     if (txn == nullptr) {
         txn = new Transaction(next_txn_id_);
         next_txn_id_++;
@@ -46,6 +47,7 @@ Transaction * TransactionManager::begin(Transaction* txn, LogManager* log_manage
  */
 void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
     // 1. 如果存在未提交的写操作，提交所有的写操作
+    std::scoped_lock lock{latch_};
     auto write_set_ = txn->get_write_set();
     while (!write_set_->empty()) {
         auto x = write_set_->back();
@@ -80,7 +82,7 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
     // 3. 清空事务相关资源，eg.锁集
     // 4. 把事务日志刷入磁盘中
     // 5. 更新事务状态
-
+    std::scoped_lock lock{latch_};
     Context context(lock_manager_, log_manager, txn);
 
     // 1. 回滚所有写操作
