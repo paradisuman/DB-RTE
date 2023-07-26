@@ -245,7 +245,7 @@ void SmManager::drop_table(const std::string& tab_name, Context* context) {
  */
 void SmManager::create_index(const std::string& tab_name, const std::vector<std::string>& col_names, Context* context) {
     if(context != nullptr) {
-        context->lock_mgr_->lock_show_on_table(context->txn_, fhs_[tab_name]->GetFd());
+        context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
     }
 
     // 查找索引是否存在
@@ -316,7 +316,7 @@ void SmManager::create_index(const std::string& tab_name, const std::vector<std:
  */
 void SmManager::drop_index(const std::string& tab_name, const std::vector<std::string>& col_names, Context* context) {
     if (context != nullptr) {
-        context->lock_mgr_->lock_show_on_table(context->txn_, fhs_[tab_name]->GetFd());
+        context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
     }
 
     if (db_.tabs_.find(tab_name) == db_.tabs_.end())
@@ -332,7 +332,6 @@ void SmManager::drop_index(const std::string& tab_name, const std::vector<std::s
     ix_manager_->close_index(ihs_.at(index_name).get());
     ix_manager_->destroy_index(tab_name, col_names);
     ihs_.erase(ix_manager_->get_index_name(tab_name, col_names));
-    }
 }
 
 /**
@@ -343,7 +342,7 @@ void SmManager::drop_index(const std::string& tab_name, const std::vector<std::s
  */
 void SmManager::drop_index(const std::string& tab_name, const std::vector<ColMeta>& cols, Context* context) {
     if (context != nullptr) {
-        context->lock_mgr_->lock_show_on_table(context->txn_, fhs_[tab_name]->GetFd());
+        context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
     }
 
     if (db_.tabs_.find(tab_name) == db_.tabs_.end())
