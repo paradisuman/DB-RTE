@@ -45,7 +45,6 @@ Transaction * TransactionManager::begin(Transaction* txn, LogManager* log_manage
  * @param {LogManager*} log_manager 日志管理器指针
  */
 void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
-    // Todo:
     // 1. 如果存在未提交的写操作，提交所有的写操作
     auto write_set_ = txn->get_write_set();
     while (!write_set_->empty()) {
@@ -54,28 +53,15 @@ void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
         delete x;
         write_set_->pop_back();
     }
-    // auto write_set_ = txn->get_write_set();
-    // for (auto &wr : *write_set_) {
-    //     // 1.Todo 目前commit不修改内存，abort直接进行内存操作 将内存写回磁盘
-    //     // 2.Todo 目前commit不修改索引，abort直接进行索引操作 将索引写回磁盘
-    //     if (wr->GetWriteType() == WType::INSERT_TUPLE) {
-
-    //     }
-    //     else if (wr->GetWriteType() == WType::DELETE_TUPLE) {
-
-    //     }
-    //     else if (wr->GetWriteType() == WType::UPDATE_TUPLE) {
-
-    //     }
-    // }
     // 2. 释放所有锁
-    // Todo:
-    // auto lock_set = txn->get_lock_set();
-    // for (auto &lock: *lock_set) {
-	// 	lock_manager_->unlock(txn, lock);
-	// }
+    auto lock_set = txn->get_lock_set();
+    for (const auto &lock: *lock_set) {
+		lock_manager_->unlock(txn, lock);
+	}
     // 3. 释放事务相关资源，eg.锁集
-    // Todo:
+    lock_set.reset();
+    index_latch_page_set_.reset();
+    index_deleted_page_set_.reset();
     // 4. 把事务日志刷入磁盘中
     // Todo:
     // 5. 更新事务状态
@@ -177,16 +163,16 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
         delete write_set->back();
         write_set->pop_back();
     } // end of while (!write_set->empty())
-    
-    // 2. 释放所有锁
-    // auto lock_set = txn->get_lock_set();
-	// for (auto &lock: *lock_set) {
-	// 	lock_manager_->unlock(txn, lock);
-	// }
-	// clean related resource
-	// lock_set->clear();
 
+    // 2. 释放所有锁
+    auto lock_set = txn->get_lock_set();
+	for (auto &lock: *lock_set) {
+		lock_manager_->unlock(txn, lock);
+	}
     // 3. 清空事务相关资源，eg.锁集
+	lock_set.reset();
+    index_latch_page_set_.reset();
+    index_deleted_page_set_.reset();
     // 4. 把事务日志刷入磁盘中
     // 5. 更新事务状态
     txn->set_state(TransactionState::ABORTED);
