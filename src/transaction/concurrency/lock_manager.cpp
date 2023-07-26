@@ -56,7 +56,7 @@ bool LockManager::lock_shared_on_table(Transaction* txn, int tab_fd) {
     auto request = LockRequest(txn->get_transaction_id(), LockMode::SHARED);
     auto &request_queue = lock_table_[lockdata_id];
 
-    // 查找当前事务是否已经对当前表 持有锁
+    // 1 如果存在X锁
     if (request_queue.cnt < 0) {
         // 如果自己是写锁
         auto reque = request_queue.request_queue_.begin();
@@ -65,14 +65,34 @@ bool LockManager::lock_shared_on_table(Transaction* txn, int tab_fd) {
         }
         else throw TransactionAbortException(txn->get_transaction_id(), AbortReason::DEADLOCK_PREVENTION);
     }
-    else {
-        // 如果读锁或者无锁直接加入
+    // 2 如果无锁直接加入
+    else if (request_queue.cnt == 0) {
         request.granted_ = true;
         request_queue.cnt++;
         request_queue.group_lock_mode_ = GroupLockMode::S;
         request_queue.request_queue_.emplace_back(request);
         txn->get_lock_set()->emplace(lockdata_id);
         return true;
+    }
+    // 3 读锁
+    else {
+        const auto txn_itr = std::find_if(
+            request_queue.request_queue_.begin(),
+            request_queue.request_queue_.end(),
+            [&] (const LockRequest &req) { return txn->get_transaction_id() == req.txn_id_; }
+        );
+        // 如果锁存在
+        if (txn_itr != request_queue.request_queue_.end()) {
+            return true;
+        }
+        // 不存在，加入锁队列
+        else {
+            request.granted_ = true;
+            request_queue.cnt++;
+            request_queue.group_lock_mode_ = GroupLockMode::S;
+            request_queue.request_queue_.emplace_back(request);
+            return true;
+        }
     }
 
 }
@@ -88,7 +108,7 @@ bool LockManager::lock_exclusive_on_table(Transaction* txn, int tab_fd) {
 
     const auto lockdata_id = LockDataId(tab_fd, LockDataType::TABLE);
 
-    // 1 在锁表中查找 lockdata_id 锁表中没有对应的记录则创建新的空记录
+    // 在锁表中查找 lockdata_id 锁表中没有对应的记录则创建新的空记录
     if (lock_table_.count(lockdata_id) == 0) {
         lock_table_.emplace(
             std::piecewise_construct,
@@ -100,16 +120,15 @@ bool LockManager::lock_exclusive_on_table(Transaction* txn, int tab_fd) {
     auto request = LockRequest(txn->get_transaction_id(), LockMode::EXCLUSIVE);
     auto &request_queue = lock_table_[lockdata_id];
 
-    // 2 查找当前事务是否已经对当前表持有锁
+    // 1 如果写锁是自己
     if (request_queue.cnt < 0){
-        // 如果写锁是自己
         auto reque = request_queue.request_queue_.begin();
         if (request_queue.cnt == 1 && reque->txn_id_ == txn->get_transaction_id()) {
             return true;
         }
         else throw TransactionAbortException(txn->get_transaction_id(), AbortReason::DEADLOCK_PREVENTION);
     }
-    // 如果无锁
+    // 2 如果无锁
     else if (request_queue.cnt == 0) {
         request_queue.request_queue_.clear();
         request_queue.cnt = -1;
@@ -117,13 +136,12 @@ bool LockManager::lock_exclusive_on_table(Transaction* txn, int tab_fd) {
         request_queue.group_lock_mode_ = GroupLockMode::X;
         request_queue.request_queue_.emplace_back(request);
         txn->get_lock_set()->insert(lockdata_id);
-
         return true;
     }
-    // 如果有读锁
+    // 3 如果有读锁
     else {
         auto reque = request_queue.request_queue_.begin();
-        // 如果唯一的读锁是他自己
+        // 如果唯一的读锁是他自己，删除读锁
         if (request_queue.cnt == 1 && reque->txn_id_ == txn->get_transaction_id()) {
             request_queue.request_queue_.clear();
             request_queue.cnt = -1;
@@ -179,14 +197,14 @@ bool LockManager::unlock(Transaction* txn, LockDataId lock_data_id) {
         if (reque->txn_id_ != txn->get_transaction_id()) {
             return true;
         }
-        // 否则改为纯净锁
+        // 否则改为无锁锁
         request_queue.cnt = 0;
         request_queue.request_queue_.clear();
         request_queue.group_lock_mode_ = GroupLockMode::NON_LOCK;
         return true;
     }
+    // 读锁删除
     else if(request_queue.cnt > 0) {
-        // 读锁删除
         const auto txn_itr = std::find_if(
             request_queue.request_queue_.begin(),
             request_queue.request_queue_.end(),
@@ -203,6 +221,7 @@ bool LockManager::unlock(Transaction* txn, LockDataId lock_data_id) {
         
             return true;
         }
-        return false;
+        return true;
     }
+    return false;
 }
