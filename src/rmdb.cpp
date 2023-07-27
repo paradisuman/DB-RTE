@@ -145,10 +145,6 @@ void *client_handler(void *sock_fd) {
                     data_send[str.length()] = '\0';
                     offset = str.length();
                     
-                    // 如果是因为死锁预防导致的回滚，则输出abort到客户端
-                    if(e.GetAbortReason() == AbortReason::DEADLOCK_PREVENTION) {
-                        // RecordPrinter::print_abort(context);
-                    }
                     // 回滚事务
                     txn_manager->abort(context->txn_, log_manager.get());
                     std::cout << e.GetInfo() << std::endl;

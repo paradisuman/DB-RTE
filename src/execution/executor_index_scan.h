@@ -55,7 +55,7 @@ class IndexScanExecutor : public AbstractExecutor {
     }
 
     // 确定初始范围
-    void init_key_range (RmRecord *min_rm, RmRecord *max_rm) {
+    void init_key_range (RmRecord &min_rm, RmRecord &max_rm) {
         size_t offset = 0;
         // 检查更新范围
         for (auto &col : index_meta_.cols) {
@@ -138,8 +138,8 @@ class IndexScanExecutor : public AbstractExecutor {
             }
             // 加一个assert判定
             // assert binop(OP_LE, tem_min, tem_max);
-            std::copy_n(tem_max.raw->data, col.len, max_rm->data + offset);
-            std::copy_n(tem_min.raw->data, col.len, min_rm->data + offset);
+            std::copy_n(tem_max.raw->data, col.len, max_rm.data + offset);
+            std::copy_n(tem_min.raw->data, col.len, min_rm.data + offset);
             offset += col.len;
         }   
     }
@@ -178,19 +178,16 @@ class IndexScanExecutor : public AbstractExecutor {
             }
         }
         fed_conds_ = conds_;
-
-       
+        context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
     }
 
     void beginTuple() override {
-        if (context_ != nullptr) {
-            context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
-        }
+        
         // 初步确定最大值和最小值
         RmRecord  max_key(index_meta_.col_tot_len), min_key(index_meta_.col_tot_len);
 
         // 构建初步范围
-        init_key_range(&min_key, &max_key);
+        init_key_range(min_key, max_key);
 
         // 建立一个迭代器，每次选择迭代一个
         auto min_ = ih_->lower_bound(min_key.data);

@@ -796,6 +796,7 @@ bool IxIndexHandle::coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, 
  * @note iid和rid存的不是一个东西，rid是上层传过来的记录位置，iid是索引内部生成的索引槽位置
  */
 Rid IxIndexHandle::get_rid(const Iid &iid) const {
+    std::scoped_lock latch{root_latch_};
     IxNodeHandle *node = fetch_node(iid.page_no);
     if (iid.slot_no >= node->get_size()) {
         throw IndexEntryNotFoundError();
@@ -821,7 +822,13 @@ Iid IxIndexHandle::lower_bound(const char *key) {
 
     IxNodeHandle *leaf_node = entry.first;
     int key_idx = leaf_node->lower_bound(key);
-    Iid iid = {.page_no = leaf_node->get_page_no(), .slot_no = key_idx};
+    Iid iid;
+    // 如果target大于所有key
+    // if (key_idx == leaf_node->get_size()) {
+    //     iid = leaf_end();
+    // } else {
+        iid = {.page_no = leaf_node->get_page_no(), .slot_no = key_idx};
+    // }
 
     // 处理
     buffer_pool_manager_->unpin_page(leaf_node->get_page_id(), false);

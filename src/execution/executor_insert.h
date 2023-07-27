@@ -35,13 +35,13 @@ class InsertExecutor : public AbstractExecutor {
         }
         fh_ = sm_manager_->fhs_.at(tab_name).get();
         context_ = context;
-        
-    };
-
-    std::unique_ptr<RmRecord> Next() override {
         if (context_ != nullptr) {
             context_->lock_mgr_->lock_exclusive_on_table(context_->txn_, fh_->GetFd());
         }
+    };
+
+    std::unique_ptr<RmRecord> Next() override {
+        
         RmRecord rec(fh_->get_file_hdr().record_size);
 
         // Make record buffer

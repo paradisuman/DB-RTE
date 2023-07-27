@@ -38,12 +38,10 @@ class UpdateExecutor : public AbstractExecutor {
         conds_ = conds;
         rids_ = rids;
         context_ = context;
-        
+        context_->lock_mgr_->lock_exclusive_on_table(context_->txn_, fh_->GetFd());
     }
     std::unique_ptr<RmRecord> Next() override {
-        if (context_ != nullptr) {
-            context_->lock_mgr_->lock_exclusive_on_table(context_->txn_, fh_->GetFd());
-        }
+        
         // 符合条件字段在rids中
         // 对每行数据进行更新
         for (const auto &rid : rids_) {
