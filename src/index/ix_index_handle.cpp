@@ -336,6 +336,7 @@ std::pair<IxNodeHandle *, bool> IxIndexHandle::find_leaf_page(const char *key, O
  * @return bool 返回目标键值对是否存在
  */
 bool IxIndexHandle::get_value(const char *key, std::vector<Rid> *result, Transaction *transaction) {
+    std::scoped_lock latch{root_latch_};
     // Todo:
     // 1. 获取目标key值所在的叶子结点
     // 2. 在叶子节点中查找目标key值的位置，并读取key对应的rid
@@ -501,6 +502,7 @@ void IxIndexHandle::insert_into_parent(IxNodeHandle *old_node, const char *key, 
  * @return page_id_t 插入到的叶结点的page_no
  */
 page_id_t IxIndexHandle::insert_entry(const char *key, const Rid &value, Transaction *transaction) {
+    std::scoped_lock latch{root_latch_};
     // Todo:
     // 1. 查找key值应该插入到哪个叶子节点
     // 2. 在该叶子节点中插入键值对,如果是最小值，那么需要 fix 更新节点了
@@ -547,6 +549,7 @@ page_id_t IxIndexHandle::insert_entry(const char *key, const Rid &value, Transac
  * @param transaction 事务指针
  */
 bool IxIndexHandle::delete_entry(const char *key, Transaction *transaction) {
+    std::scoped_lock latch{root_latch_};
     // Todo:
     // 1. 获取该键值对所在的叶子结点
     // 2. 在该叶子结点中删除键值对
@@ -810,6 +813,7 @@ Rid IxIndexHandle::get_rid(const Iid &iid) const {
  * 可用*(int *)key转换回去
  */
 Iid IxIndexHandle::lower_bound(const char *key) {
+    std::scoped_lock latch{root_latch_};
     std::pair<IxNodeHandle *, bool> entry = find_leaf_page(key, Operation::FIND, nullptr);
      if (!entry.first) {
         return Iid{-1, -1};
@@ -832,6 +836,7 @@ Iid IxIndexHandle::lower_bound(const char *key) {
  * @return Iid
  */
 Iid IxIndexHandle::upper_bound(const char *key) {
+    std::scoped_lock latch{root_latch_};
     std::pair<IxNodeHandle *, bool> entry = find_leaf_page(key, Operation::FIND, nullptr);
      if (!entry.first) {
         return Iid{-1, -1};
@@ -1015,6 +1020,7 @@ void IxIndexHandle::update_node(IxNodeHandle *parent_node, IxNodeHandle *node, c
 
 
 bool IxIndexHandle::is_key_exist(const char *key,  Transaction *transaction) {
+    std::scoped_lock latch{root_latch_};
     auto result = find_leaf_page(key, Operation::FIND, transaction);
     IxNodeHandle *leaf_node = result.first;
     int key_num = leaf_node->page_hdr->num_key;
