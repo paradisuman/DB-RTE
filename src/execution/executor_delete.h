@@ -34,12 +34,13 @@ class DeleteExecutor : public AbstractExecutor {
         conds_ = conds;
         rids_ = rids;
         context_ = context;
+        
+
+    std::unique_ptr<RmRecord> Next() override {
         if (context_ != nullptr) {
             context_->lock_mgr_->lock_exclusive_on_table(context_->txn_, fh_->GetFd());
         }
     }
-
-    std::unique_ptr<RmRecord> Next() override {
         // 删除record file
         for (auto &rid : rids_) {
             auto rec = fh_->get_record(rid, context_);
