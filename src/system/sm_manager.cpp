@@ -102,6 +102,16 @@ void SmManager::open_db(const std::string& db_name) {
     }
 
     // TODO: 加载数据索引文件
+    for (const auto &[tab_name, tab] : db_.tabs_) {
+        for (auto &index : tab.indexes) {
+            std::string index_name = ix_manager_->get_index_name(tab_name, tab.cols);
+            fhs_.emplace(
+                tab_name,
+                ix_manager_->open_index(tab_name, tab.cols)
+            );
+        }
+        
+    }
 }
 
 /**
@@ -223,14 +233,17 @@ void SmManager::drop_table(const std::string& tab_name, Context* context) {
         throw TableNotFoundError(tab_name);
     }
 
+    // TODO: 删除表索引
+    for (auto &index : db_.tabs_[tab_name].indexes) {
+        drop_index(db_.tabs_[tab_name].name, index.cols, context);
+    }
+
     //先删除db_中的表，再删除文件表，最后删除fhs_中的表
     fhs_[tab_name]->close_all_page();
     rm_manager_->close_file(fhs_[tab_name].get());
     rm_manager_->destroy_file(tab_name);
     fhs_.erase(tab_name);
     db_.tabs_.erase(tab_name);
-
-    // TODO: 删除表索引
 
     flush_meta();
 }
