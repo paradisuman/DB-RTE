@@ -44,7 +44,7 @@ class UpdateExecutor : public AbstractExecutor {
         
         // 符合条件字段在rids中
         // 对每行数据进行更新
-        for (const auto &rid : rids_) {
+        for (auto &rid : rids_) {
             // 获取原信息
             auto target_record = fh_->get_record(rid, context_);
             RmRecord new_rcd(fh_->get_file_hdr().record_size, target_record->data);
@@ -99,8 +99,8 @@ class UpdateExecutor : public AbstractExecutor {
             }
 
             // 日志落盘
-            auto update_log_record = UpdateLogRecord(context_->txn_->get_transaction_id(), target_record, new_rcd, rid, tab_name_);
-            context_->log_mgr_->add_log_to_buffer(update_log_record);
+            auto update_log_record = UpdateLogRecord(context_->txn_->get_transaction_id(), *target_record, new_rcd, rid, tab_name_);
+            context_->log_mgr_->add_log_to_buffer(&update_log_record);
             context_->log_mgr_->flush_log_to_disk();
 
             // TODO 索引日志

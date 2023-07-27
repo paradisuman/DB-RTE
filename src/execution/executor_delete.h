@@ -45,7 +45,7 @@ class DeleteExecutor : public AbstractExecutor {
             auto rec = fh_->get_record(rid, context_);
 
             // 日志落盘
-            auto delete_log_record = DeleteLogRecord(context_->txn_->get_transaction_id(), rec, rid, tab_name_);
+            auto delete_log_record = DeleteLogRecord(context_->txn_->get_transaction_id(), *rec, rid, tab_name_);
             context_->log_mgr_->add_log_to_buffer(&delete_log_record);
             context_->log_mgr_->flush_log_to_disk();
 
