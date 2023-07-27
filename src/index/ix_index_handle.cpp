@@ -824,11 +824,11 @@ Iid IxIndexHandle::lower_bound(const char *key) {
     int key_idx = leaf_node->lower_bound(key);
     Iid iid;
     // 如果target大于所有key
-    // if (key_idx == leaf_node->get_size()) {
-    //     iid = leaf_end();
-    // } else {
+    if (key_idx == leaf_node->get_size()) {
+        iid = leaf_end();
+    } else {
         iid = {.page_no = leaf_node->get_page_no(), .slot_no = key_idx};
-    // }
+    }
 
     // 处理
     buffer_pool_manager_->unpin_page(leaf_node->get_page_id(), false);
