@@ -73,7 +73,6 @@ class UpdateExecutor : public AbstractExecutor {
                 memcpy(new_rcd.data + col.offset, val.raw->data, col.len);
             }
 
-
             std::vector<std::unique_ptr<char[]>> new_keys;
             std::vector<std::unique_ptr<char[]>> old_keys;
             // 检查索引唯一性
@@ -99,6 +98,13 @@ class UpdateExecutor : public AbstractExecutor {
                 }
             }
 
+            // 日志落盘
+            auto update_log_record = UpdateLogRecord(context_->txn_->get_transaction_id(), target_record, new_rcd, rid, tab_name_);
+            context_->log_mgr_->add_log_to_buffer(update_log_record);
+            context_->log_mgr_->flush_log_to_disk();
+
+            // TODO 索引日志
+
             // 删除和插入索引
             for(size_t i = 0; i < tab_.indexes.size(); ++i) {
                 auto& index = tab_.indexes[i];
@@ -116,7 +122,7 @@ class UpdateExecutor : public AbstractExecutor {
 
             // 更新record
             fh_->update_record(rid, new_rcd.data, context_);
-            
+
             WriteRecord *wr = new WriteRecord(WType::UPDATE_TUPLE, tab_name_, rid, *target_record);
             context_->txn_->append_write_record(wr);
         }

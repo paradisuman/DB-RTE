@@ -11,6 +11,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include <map>
+#include <set>
 #include <unordered_map>
 #include "log_manager.h"
 #include "storage/disk_manager.h"
@@ -39,4 +40,7 @@ private:
     DiskManager* disk_manager_;                                     // 用来读写文件
     BufferPoolManager* buffer_pool_manager_;                        // 对页面进行读写
     SmManager* sm_manager_;                                         // 访问数据库元数据
+    std::map<txn_id_t, std::vector<lsn_t>> active_transaction_table;    // 未完成事务表
+    std::map<PageId, RedoLogsInPage> dirty_page_table;                  // 脏页表
+    std::map<lsn_t, std::shared_ptr<LogRecord>> lsn2log;
 };

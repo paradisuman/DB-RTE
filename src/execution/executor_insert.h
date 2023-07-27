@@ -52,8 +52,6 @@ class InsertExecutor : public AbstractExecutor {
             val.init_raw(col.len);
             memcpy(rec.data + col.offset, val.raw->data, col.len);
         }
-        // Insert into record file
-        rid_ = fh_->insert_record(rec.data, context_);
 
         std::vector<std::unique_ptr<char[]>> keys;
         // 检查索引唯一性
@@ -67,11 +65,18 @@ class InsertExecutor : public AbstractExecutor {
                 memcpy(key + offset, rec.data + index.cols[i].offset, index.cols[i].len);
                 offset += index.cols[i].len;
             }
-            if (ih->is_key_exist(key, context_->txn_)) {
-                fh_->delete_record(rid_, context_);
+            if (ih->is_key_exist(key, context_->txn_))
                 throw RMDBError("index unique error!");
-            }
         }
+
+        // 日志落盘
+        auto insert_log_record = InsertLogRecord(context_->txn_->get_transaction_id(), rec, rid_, tab_name_);
+        context_->log_mgr_->add_log_to_buffer(&insert_log_record);
+        context_->log_mgr_->flush_log_to_disk();
+
+        // Insert into record file
+        rid_ = fh_->insert_record(rec.data, context_);
+
         // 插入索引
         for(size_t i = 0; i < tab_.indexes.size(); ++i) {
             auto &index = tab_.indexes[i];
