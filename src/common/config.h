@@ -10,6 +10,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <string>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -52,3 +53,5 @@ static const std::string LOG_FILE_NAME = "db.log";
 static const std::string REPLACER_TYPE = "LRU";
 
 static const std::string DB_META_NAME = "db.meta";
+
+extern bool output2file;

@@ -11,6 +11,7 @@
 %option bison-locations
 
 %{
+#include "common/config.h"
 #include "ast.h"
 #include "yacc.tab.h"
 #include "errors.h"
@@ -58,6 +59,8 @@ single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
     /* white space and new line */
 {white_space} { /* ignore white space */ }
 {new_line} { /* ignore new line */ }
+
+"set output_file off" { output2file = false; }
     /* keywords */
 "SHOW" { return SHOW; }
 "BEGIN" { return TXN_BEGIN; }

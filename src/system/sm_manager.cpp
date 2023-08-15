@@ -136,9 +136,17 @@ void SmManager::close_db() {
  * @param {Context*} context 
  */
 void SmManager::show_tables(Context* context) {
-    std::fstream outfile;
-    outfile.open("output.txt", std::ios::out | std::ios::app);
-    outfile << "| Tables |\n";
+    if (output2file) {
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+        outfile << "| Tables |\n";
+        for (auto &entry : db_.tabs_) {
+            auto &tab = entry.second;
+            outfile << "| " << tab.name << " |\n";
+        }
+        outfile.close();
+    }
+
     RecordPrinter printer(1);
     printer.print_separator(context);
     printer.print_record({"Tables"}, context);
@@ -146,10 +154,8 @@ void SmManager::show_tables(Context* context) {
     for (auto &entry : db_.tabs_) {
         auto &tab = entry.second;
         printer.print_record({tab.name}, context);
-        outfile << "| " << tab.name << " |\n";
     }
     printer.print_separator(context);
-    outfile.close();
 }
 
 /**
@@ -372,15 +378,19 @@ void SmManager::show_index(const std::string& tab_name, Context* context) {
         index_names.push_back(name);
     }
 
-    std::fstream outfile;
-    outfile.open("output.txt", std::ios::out | std::ios::app);
+    if (output2file) {
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+        for (auto &x : index_names) {
+            outfile << "| "<< tab_name <<" | unique | ";
+            outfile << x <<" |\n";
+        }
+        outfile.close();
+    }
     RecordPrinter printer(3);
     printer.print_separator(context);
     for (auto &x : index_names) {
-        outfile << "| "<< tab_name <<" | unique | ";
-        outfile << x <<" |\n";
         printer.print_record({tab_name, "unique", x}, context);
     }
     printer.print_separator(context);
-    outfile.close();
 }

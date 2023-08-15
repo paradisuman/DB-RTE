@@ -13,6 +13,9 @@ See the Mulan PSL v2 for more details. */
 #include <fstream>
 
 #include "parser.h"
+#include "common/config.h"
+
+bool output2file = true;
 
 int main(int argc, char *argv[]) {
     if (argc == 1) {
