@@ -23,15 +23,51 @@ See the Mulan PSL v2 for more details. */
 #include "record_printer.h"
 
 // 目前的索引匹配规则为：完全匹配索引字段，且全部为单点查询，不会自动调整where条件的顺序
+// 最左匹配要求前面全是equal，最后一个可以是大于小于或范围
 bool Planner::get_index_cols(std::string tab_name, std::vector<Condition> curr_conds, std::vector<std::string>& index_col_names) {
     index_col_names.clear();
-    for(auto& cond: curr_conds) {
-        if(cond.is_rhs_val && cond.op == OP_EQ && cond.lhs_col.tab_name.compare(tab_name) == 0)
-            index_col_names.push_back(cond.lhs_col.col_name);
-    }
-    TabMeta& tab = sm_manager_->db_.get_table(tab_name);
-    if(tab.is_index(index_col_names)) return true;
-    return false;
+	auto &index_meta = sm_manager_->db_.get_table(tab_name).indexes;
+	std::vector<std::string> indexed_col;
+	int maxlen = -1;
+	for (auto &meta: index_meta) {
+		for (auto index_: meta.cols) {
+			indexed_col.push_back(index_.name);
+		}
+		std::vector<std::vector<bool>> status(3, std::vector<bool>(indexed_col.size(), false));
+		int match_len = 0;
+		for (size_t i = 0; i < curr_conds.size(); i++) {
+			auto &cond = curr_conds[i];
+			auto pos = std::find(indexed_col.begin(), indexed_col.end(), cond.lhs_col.col_name) - indexed_col.begin();
+			if (cond.is_rhs_val && cond.op != OP_NE) {
+				if (pos == 0 || status[1][pos - 1] || status[0][pos] || status[2][pos]) {
+					switch (cond.op) {
+						case OP_EQ:
+							status[1][pos] = true;
+							break;
+						case OP_NE:
+							break;
+						case OP_LT:
+						case OP_LE:
+							status[2][pos] = true;
+							break;
+						case OP_GT:
+						case OP_GE:
+							status[0][pos] = true;
+							break;
+					}
+				} else {
+					break;
+				}
+				match_len = i;
+			}
+		}
+		if (match_len > maxlen) {
+			maxlen = match_len;
+			index_col_names = std::move(indexed_col);
+		}
+		indexed_col.clear();
+	}
+    return index_col_names.size() > 0;
 }
 
 /**
