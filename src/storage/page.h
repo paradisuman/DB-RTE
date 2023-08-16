@@ -12,8 +12,6 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/config.h"
 
-#include <shared_mutex>
-
 /**
  * @description: 存储层每个Page的id的声明
  */
@@ -73,14 +71,6 @@ class Page {
 
     inline void set_page_lsn(lsn_t page_lsn) { memcpy(get_data() + OFFSET_LSN, &page_lsn, sizeof(lsn_t)); }
 
-    inline void WLock() { rwlock.lock(); }
-
-    inline void WUnLock() { rwlock.unlock(); }
-
-    inline void RLock() { rwlock.lock_shared(); }
-
-    inline void RUnLock() { rwlock.unlock_shared(); }
-
    private:
     void reset_memory() { memset(data_, OFFSET_PAGE_START, PAGE_SIZE); }  // 将data_的PAGE_SIZE个字节填充为0
 
@@ -97,6 +87,4 @@ class Page {
 
     /** The pin count of this page. */
     int pin_count_ = 0;
-
-    std::shared_mutex rwlock;
 };

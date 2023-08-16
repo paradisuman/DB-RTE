@@ -174,7 +174,7 @@ class IxIndexHandle {
     BufferPoolManager *buffer_pool_manager_;
     int fd_;                                    // 存储B+树的文件
     IxFileHdr* file_hdr_;                       // 存了root_page，但其初始化为2（第0页存FILE_HDR_PAGE，第1页存LEAF_HEADER_PAGE）
-    std::mutex root_latch_;
+    std::mutex mutable root_latch_;
 
    public:
     IxIndexHandle(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager, int fd);
@@ -216,13 +216,6 @@ class IxIndexHandle {
     Iid leaf_begin() const;
 
     bool is_key_exist(const char *key, Transaction *transaction);
-
-    bool is_secure(IxNodeHandle *node, Operation operation);
-
-    void unlock_unpin_all_pages(Transaction* transaction);
-
-    // void unlock_all_pages(Transaction* transaction);
-
 
 
    private:
