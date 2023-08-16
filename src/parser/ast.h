@@ -169,9 +169,10 @@ struct Col : public Expr {
 struct SetClause : public TreeNode {
     std::string col_name;
     std::shared_ptr<Value> val;
+    bool is_selfadd;
 
-    SetClause(std::string col_name_, std::shared_ptr<Value> val_) :
-            col_name(std::move(col_name_)), val(std::move(val_)) {}
+    SetClause(std::string col_name_, std::shared_ptr<Value> val_, bool is_selfadd_ = false) :
+            col_name(std::move(col_name_)), val(std::move(val_)), is_selfadd(is_selfadd_) {}
 };
 
 struct BinaryExpr : public TreeNode {

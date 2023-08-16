@@ -67,8 +67,10 @@ struct Value {
     }
 
     void init_raw(size_t len) {
-        assert(raw == nullptr);
-        raw = std::make_shared<RmRecord>(len);
+        // assert(raw == nullptr);
+        if (raw == nullptr) {
+            raw = std::make_shared<RmRecord>(len);
+        }
         if (type == TYPE_INT) {
             assert(len >= sizeof(int));
             if (len == sizeof(int))
@@ -134,6 +136,7 @@ struct Condition {
 struct SetClause {
     TabCol lhs;
     Value rhs;
+    bool is_selfadd = false;
 };
 
 const std::vector<std::set<ColType>> legal_binop = {

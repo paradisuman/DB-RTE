@@ -53,14 +53,26 @@ class UpdateExecutor : public AbstractExecutor {
             // 更新数据
             for (const auto &x : set_clauses_) {
                 const auto &col = *tab_.get_col(x.lhs.col_name);
-                auto &val = x.rhs;
+                auto val = x.rhs;
                 if (!is_compatible_type(col.type, val.type)) {
                     throw IncompatibleTypeError(coltype2str(col.type), coltype2str(val.type));
                 }
                 // 新纪录在这里
+                if (x.is_selfadd) {
+                    Value old_val;
+                    old_val.type = col.type;
+                    old_val.load_raw(col.len, target_record->data + col.offset);
+                    switch (col.type) {
+                        case TYPE_INT : val.int_val += old_val.int_val; break;
+                        case TYPE_BIGINT : val.bigint_val += old_val.bigint_val; break;
+                        case TYPE_FLOAT : val.float_val += old_val.float_val; break;
+                        default : throw InternalError("Unsupported operation.");
+                    }
+                    val.init_raw(col.len);
+                }
                 memcpy(new_rcd.data + col.offset, val.raw->data, col.len);
             }
-            
+
 
             std::vector<std::unique_ptr<char[]>> new_keys;
             std::vector<std::unique_ptr<char[]>> old_keys;
