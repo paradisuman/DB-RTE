@@ -316,7 +316,7 @@ bool BufferPoolManager::delete_all_page(int fd) {
     }
     // 删除页面
     for (frame_id_t frame_id : target_frames) {
-        auto target_page = pages_[frame_id];
+        auto &target_page = pages_[frame_id];
         update_page(&target_page, target_page.id_, INVALID_FRAME_ID);
         free_list_.push_back(frame_id);
     }
