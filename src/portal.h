@@ -37,6 +37,7 @@ typedef enum portalTag{
     PORTAL_SELECT_WITH_SUM,
     PORTAL_DML_WITHOUT_SELECT,
     PORTAL_MULTI_QUERY,
+    PORTAL_LOAD,
     PORTAL_CMD_UTILITY,
 } portalTag;
 
@@ -69,6 +70,8 @@ class Portal
             return std::make_shared<PortalStmt>(PORTAL_CMD_UTILITY, std::vector<TabCol>(), std::unique_ptr<AbstractExecutor>(),plan);
         } else if (auto x = std::dynamic_pointer_cast<DDLPlan>(plan)) {
             return std::make_shared<PortalStmt>(PORTAL_MULTI_QUERY, std::vector<TabCol>(), std::unique_ptr<AbstractExecutor>(),plan);
+        } else if (auto x = std::dynamic_pointer_cast<LoadPlan>(plan)) {
+            return std::make_shared<PortalStmt>(PORTAL_LOAD, std::vector<TabCol>(), std::unique_ptr<AbstractExecutor>(), plan);
         } else if (auto x = std::dynamic_pointer_cast<DMLPlan>(plan)) {
             switch(x->tag) {
                 // 这里可以将select进行拆分，例如：一个select，带有return的select等
@@ -144,8 +147,6 @@ class Portal
             
                     return std::make_shared<PortalStmt>(PORTAL_DML_WITHOUT_SELECT, std::vector<TabCol>(), std::move(root), plan);
                 }
-
-
                 default:
                     throw InternalError("Unexpected field type");
                     break;
@@ -189,7 +190,10 @@ class Portal
                 ql->select_from(std::move(portal->root), std::move(portal->sel_cols), SELECT_WITH_SUM, context);
                 break;
             }
-
+            case PORTAL_LOAD : {
+                ql->load_csv(std::move(std::dynamic_pointer_cast<LoadPlan>(portal->plan)), context);
+                break;
+            }
             case PORTAL_DML_WITHOUT_SELECT:
             {
                 ql->run_dml(std::move(portal->root));

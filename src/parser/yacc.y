@@ -21,7 +21,7 @@ using namespace ast;
 %define parse.error verbose
 
 // keywords
-%token SHOW TABLES CREATE TABLE DROP DESC INSERT INTO VALUES DELETE FROM ASC ORDER BY
+%token SHOW TABLES CREATE TABLE DROP DESC INSERT INTO VALUES DELETE FROM ASC ORDER BY LOAD
 WHERE UPDATE SET SELECT INT CHAR FLOAT BIGINT DATETIME INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_COMMIT TXN_ABORT TXN_ROLLBACK ORDER_BY
 COUNT MAX MIN SUM AS
 // non-keywords
@@ -43,7 +43,7 @@ COUNT MAX MIN SUM AS
 %type <sv_expr> expr
 %type <sv_val> value
 %type <sv_vals> valueList
-%type <sv_str> tbName colName
+%type <sv_str> tbName colName path filename
 %type <sv_strs> tableList colNameList
 %type <sv_col> col
 %type <sv_cols> colList selector
@@ -159,6 +159,10 @@ dml:
     |   SELECT aggregate_function '(' selector ')' AS colName FROM tableList optWhereClause opt_order_clause
     {
         $$ = std::make_shared<SelectStmt>($4, $9, $10, $11, $2, $7);
+    }
+    |   LOAD path INTO tbName
+    {
+        $$ = std::make_shared<LoadStmt>($2, $4);
     }
     ;
 
@@ -416,6 +420,31 @@ opt_asc_desc:
     ;    
 
 tbName: IDENTIFIER;
-
 colName: IDENTIFIER;
+
+path:
+        filename
+    {
+        $$ = $1;
+    }
+    |   filename '.' filename
+    {
+        $$ = $1 + '.' + $3;
+    }
+    |   filename '/' path
+    {
+        $$ = $1 + '/' + $3;
+    }
+    |   '.' '.' '/' path
+    {
+        $$ = "../" + $4;
+    }
+    |   '.' '/' path
+    {
+        $$ = "./" + $3;
+    }
+    ;
+
+filename: IDENTIFIER
+
 %%

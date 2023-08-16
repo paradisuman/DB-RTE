@@ -191,6 +191,12 @@ struct OrderBy : public TreeNode
        cols(std::move(cols_)), orderby_dir(std::move(orderby_dir_)) {}
 };
 
+struct LoadStmt : public TreeNode {
+    std::string path, tab_name;
+
+    LoadStmt(std::string path_, std::string tab_name_) : path(std::move(path_)), tab_name(std::move(tab_name_)) {}
+};
+
 struct InsertStmt : public TreeNode {
     std::string tab_name;
     std::vector<std::shared_ptr<Value>> vals;

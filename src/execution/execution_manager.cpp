@@ -22,6 +22,9 @@ See the Mulan PSL v2 for more details. */
 #include "record_printer.h"
 #include "common/datetime_utils.hpp"
 
+#include <fstream>
+#include <boost/tokenizer.hpp>
+
 const char *help_info = "Supported SQL syntax:\n"
                    "  command ;\n"
                    "command:\n"
@@ -431,6 +434,68 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
 }
 
 // 执行DML语句
-void QlManager::run_dml(std::unique_ptr<AbstractExecutor> exec){
+void QlManager::run_dml(std::unique_ptr<AbstractExecutor> exec) {
     exec->Next();
+}
+
+void QlManager::load_csv(std::shared_ptr<LoadPlan> plan, Context *context) {
+    const auto &tab_name = plan->tab_name_;
+    const auto &path = plan->path_;
+
+    const auto &tab = sm_manager_->db_.get_table(tab_name);
+    const auto &cols = tab.cols;
+
+    auto csv_file = std::ifstream(path);
+
+    if (!csv_file.is_open()) {
+        throw InternalError("Cannot open the CSV file.");
+    }
+
+    using Token = boost::tokenizer<boost::escaped_list_separator<char>>;
+    // Check header
+    auto is_header_valid = [&] () {
+        std::string header_raw;
+        std::getline(csv_file, header_raw);
+        auto headers = Token(header_raw);
+
+        auto hdr_itr = headers.begin();
+        auto col_itr = cols.begin();
+        for (; hdr_itr != headers.end() && col_itr != cols.end(); hdr_itr++, col_itr++) {
+            if (*hdr_itr == col_itr->name) {
+                continue;
+            }
+            return false;
+        }
+        if (hdr_itr != headers.end() || col_itr != cols.end()) {
+            return false;
+        }
+        return true;
+    } ();
+    if (!is_header_valid) {
+        throw InternalError("The CSV header mismatches table header.");
+    }
+
+    std::string line;
+    while (std::getline(csv_file, line)) {
+        auto line_tok = Token(line);
+
+        auto csv_itr = line_tok.begin();
+        auto col_itr = cols.begin();
+
+        std::vector<Value> values;
+        for (; !csv_itr.at_end(); csv_itr++, col_itr++) {
+            Value val;
+            val.type = col_itr->type;
+            switch (val.type) {
+                case TYPE_INT : val.set_int(std::stoi(*csv_itr)); break;
+                case TYPE_BIGINT : val.set_bigint(std::stoll(*csv_itr)); break;
+                case TYPE_FLOAT : val.set_float(std::stof(*csv_itr)); break;
+                case TYPE_STRING : val.set_str(*csv_itr); break;
+                case TYPE_DATETIME : val.set_datetime(datetime::to_bcd(*csv_itr)); break;
+            }
+            values.push_back(std::move(val));
+        }
+
+        InsertExecutor(sm_manager_, tab_name, std::move(values), context).Next();
+    }
 }

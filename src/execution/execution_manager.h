@@ -49,4 +49,5 @@ class QlManager {
                         Context *context);
 
     void run_dml(std::unique_ptr<AbstractExecutor> exec);
+    void load_csv(std::shared_ptr<LoadPlan> plan, Context *context);
 };

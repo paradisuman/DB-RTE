@@ -30,6 +30,7 @@ typedef enum PlanTag{
     T_CreateIndex,
     T_DropIndex,
     T_Insert,
+    T_Load,
     T_Update,
     T_Delete,
     T_select,
@@ -134,6 +135,17 @@ class SortPlan : public Plan
         std::shared_ptr<Plan> subplan_;
         TabCol sel_col_;
         bool is_desc_;
+};
+
+class LoadPlan : public Plan {
+    public:
+        LoadPlan(std::string tab_name, std::string path) {
+            Plan::tag = PlanTag::T_Load;
+            tab_name_ = std::move(tab_name);
+            path_ = std::move(path);
+        }
+        ~LoadPlan() {}
+        std::string tab_name_, path_;
 };
 
 // dml语句，包括insert; delete; update; select语句　
