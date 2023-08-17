@@ -302,8 +302,8 @@ int main(int argc, char **argv) {
 
         // recovery database
         recovery->analyze();
-        recovery->redo();
-        // recovery->undo();
+        // recovery->redo();
+        recovery->undo();
         // return 0;
         
         // 开启服务端，开始接受客户端连接
