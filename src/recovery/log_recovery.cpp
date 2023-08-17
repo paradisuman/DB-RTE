@@ -94,8 +94,9 @@ void RecoveryManager::analyze() {
                         redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
                     }
                     auto &redo_log_in_page = dirty_page_table[page_id];
-                    if (redo_log_in_page.redo_logs_.back() < insert_log_record->lsn_)
+                    if (redo_log_in_page.redo_logs_[0] < insert_log_record->lsn_) {
                         redo_log_in_page.redo_logs_.push_back(insert_log_record->lsn_);
+                    }
                     // 更新 lsn2log
                     lsn2log[insert_log_record->lsn_] = std::move(insert_log_record);
 
@@ -125,8 +126,9 @@ void RecoveryManager::analyze() {
                         redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
                     }
                     auto &redo_log_in_page = dirty_page_table[page_id];
-                    if (redo_log_in_page.redo_logs_.back() < delete_log_record->lsn_)
+                    if (redo_log_in_page.redo_logs_[0] < delete_log_record->lsn_) {
                         redo_log_in_page.redo_logs_.push_back(delete_log_record->lsn_);
+                    }
                     // 更新 lsn2log
                     lsn2log[delete_log_record->lsn_] = std::move(delete_log_record);
 
@@ -155,8 +157,9 @@ void RecoveryManager::analyze() {
                         redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
                     }
                     auto &redo_log_in_page = dirty_page_table[page_id];
-                    if (redo_log_in_page.redo_logs_.back() < update_log_record->lsn_)
+                    if (redo_log_in_page.redo_logs_[0] < update_log_record->lsn_) {
                         redo_log_in_page.redo_logs_.push_back(update_log_record->lsn_);
+                    }
                     // 更新 lsn2log
                     lsn2log[update_log_record->lsn_] = std::move(update_log_record);
 
