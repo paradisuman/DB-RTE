@@ -165,6 +165,7 @@ public:
         LogRecord::format_print();
         printf("insert_value: %s\n", insert_value_.data);
         printf("insert rid: %d, %d\n", rid_.page_no, rid_.slot_no);
+        printf("table name size: %lu\n", table_name_size_);
         printf("table name: %s\n", table_name_.get());
     }
 
@@ -226,6 +227,7 @@ public:
         LogRecord::format_print();
         printf("delete_value: %s\n", delete_value_.data);
         printf("delete rid: %d, %d\n", rid_.page_no, rid_.slot_no);
+        printf("table name size: %lu\n", table_name_size_);
         printf("table name: %s\n", table_name_.get());
     }
 
@@ -297,6 +299,7 @@ public:
         printf("before_value: %s\n", before_value_.data);
         printf("after_value: %s\n", after_value_.data);
         printf("update rid: %d, %d\n", rid_.page_no, rid_.slot_no);
+        printf("table name size: %lu\n", table_name_size_);
         printf("table name: %s\n", table_name_.get());
     }
 

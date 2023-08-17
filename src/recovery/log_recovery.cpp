@@ -31,6 +31,7 @@ void RecoveryManager::analyze() {
                     auto begin_log_record = std::make_shared<BeginLogRecord>();
                     // 反序列化得到日志记录
                     begin_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                    // begin_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += begin_log_record->log_tot_len_;
                     // 更新 ATT
@@ -45,6 +46,7 @@ void RecoveryManager::analyze() {
                     auto abort_log_record = std::make_shared<AbortLogRecord>();
                     // 反序列化得到日志记录
                     abort_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                    // abort_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += abort_log_record->log_tot_len_;
                     // 更新 ATT
@@ -58,6 +60,7 @@ void RecoveryManager::analyze() {
                     auto commit_log_record = std::make_shared<CommitLogRecord>();
                     // 反序列化得到日志记录
                     commit_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                    // commit_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += commit_log_record->log_tot_len_;
                     // 更新 ATT
@@ -72,6 +75,7 @@ void RecoveryManager::analyze() {
                     auto insert_log_record = std::make_shared<InsertLogRecord>();
                     // 反序列化得到日志记录
                     insert_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                    // insert_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += insert_log_record->log_tot_len_;
                     // 更新 ATT
@@ -86,6 +90,7 @@ void RecoveryManager::analyze() {
                     if (dirty_page_table.count(page_id) == 0) {
                         auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
                         auto &redo_log_in_page = itr.first->second;
+                        redo_log_in_page.table_file_ = table_file;
                         redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
                     }
                     auto &redo_log_in_page = dirty_page_table[page_id];
@@ -100,6 +105,7 @@ void RecoveryManager::analyze() {
                     auto delete_log_record = std::make_shared<DeleteLogRecord>();
                     // 反序列化得到日志记录
                     delete_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                    // delete_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += delete_log_record->log_tot_len_;
                     // 更新 ATT
@@ -115,6 +121,7 @@ void RecoveryManager::analyze() {
                     if (dirty_page_table.count(page_id) == 0) {
                         auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
                         auto &redo_log_in_page = itr.first->second;
+                        redo_log_in_page.table_file_ = table_file;
                         redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
                     }
                     auto &redo_log_in_page = dirty_page_table[page_id];
@@ -126,9 +133,10 @@ void RecoveryManager::analyze() {
                     break;
                 }
                 case LogType::UPDATE : {
-                        auto update_log_record = std::make_shared<UpdateLogRecord>();
+                    auto update_log_record = std::make_shared<UpdateLogRecord>();
                     // 反序列化得到日志记录
                     update_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                    // update_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += update_log_record->log_tot_len_;
                     // 更新 ATT
@@ -143,6 +151,7 @@ void RecoveryManager::analyze() {
                     if (dirty_page_table.count(page_id) == 0) {
                         auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
                         auto &redo_log_in_page = itr.first->second;
+                        redo_log_in_page.table_file_ = table_file;
                         redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
                     }
                     auto &redo_log_in_page = dirty_page_table[page_id];

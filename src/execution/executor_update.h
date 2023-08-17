@@ -100,8 +100,10 @@ class UpdateExecutor : public AbstractExecutor {
 
             // 日志落盘
             auto update_log_record = UpdateLogRecord(context_->txn_->get_transaction_id(), *target_record, new_rcd, rid, tab_name_);
-            context_->log_mgr_->add_log_to_buffer(&update_log_record);
+            update_log_record.prev_lsn_ = context_->txn_->get_prev_lsn();
+            auto last_lsn = context_->log_mgr_->add_log_to_buffer(&update_log_record);
             context_->log_mgr_->flush_log_to_disk();
+            context_->txn_->set_prev_lsn(last_lsn);
 
             // TODO 索引日志
 

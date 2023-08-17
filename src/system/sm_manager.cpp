@@ -95,22 +95,15 @@ void SmManager::open_db(const std::string& db_name) {
 
     // 加载数据库表文件
     for (const auto &[tab_name, _] : db_.tabs_) {
-        fhs_.emplace(
-            tab_name,
-            rm_manager_->open_file(tab_name)
-        );
+        fhs_.emplace(tab_name, rm_manager_->open_file(tab_name));
     }
 
     // TODO: 加载数据索引文件
     for (const auto &[tab_name, tab] : db_.tabs_) {
         for (auto &index : tab.indexes) {
-            std::string index_name = ix_manager_->get_index_name(tab_name, tab.cols);
-            fhs_.emplace(
-                tab_name,
-                ix_manager_->open_index(tab_name, tab.cols)
-            );
+            std::string index_name = ix_manager_->get_index_name(tab_name, index.cols);
+            ihs_.emplace(tab_name, ix_manager_->open_index(tab_name, tab.cols));
         }
-        
     }
 }
 
