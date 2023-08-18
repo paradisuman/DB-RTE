@@ -70,7 +70,7 @@ int IxNodeHandle::upper_bound(const char *target) const {
     // 查找当前节点中第一个大于target的key，并返回key的位置给上层
     // 提示: 可以采用多种查找方式：顺序遍历、二分查找等；使用ix_compare()函数进行比较
     if(binary_search) {
-        int left = 0;
+        int left = 1;
         int right = page_hdr->num_key;
         int result = page_hdr->num_key;
 
