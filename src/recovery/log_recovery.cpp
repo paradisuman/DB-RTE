@@ -34,10 +34,10 @@ void RecoveryManager::analyze() {
                     // begin_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += begin_log_record->log_tot_len_;
-            //         // 更新 ATT
-            //         active_transaction_table.emplace(begin_log_record->log_tid_, begin_log_record->lsn_);
-            //         // 更新 lsn2log
-            //         lsn2log[begin_log_record->lsn_] = std::move(begin_log_record);
+                    // 更新 ATT
+                    active_transaction_table.emplace(begin_log_record->log_tid_, begin_log_record->lsn_);
+                    // 更新 lsn2log
+                    lsn2log[begin_log_record->lsn_] = std::move(begin_log_record);
 
                     break;
                 }
@@ -49,10 +49,10 @@ void RecoveryManager::analyze() {
                     // abort_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += abort_log_record->log_tot_len_;
-            //         // 更新 ATT
-            //         active_transaction_table.erase(abort_log_record->log_tid_);
-            //         // 更新 lsn2log
-            //         lsn2log[abort_log_record->lsn_] = std::move(abort_log_record);
+                    // 更新 ATT
+                    active_transaction_table.erase(abort_log_record->log_tid_);
+                    // 更新 lsn2log
+                    lsn2log[abort_log_record->lsn_] = std::move(abort_log_record);
 
                     break;
                 }
@@ -63,10 +63,10 @@ void RecoveryManager::analyze() {
                     // commit_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += commit_log_record->log_tot_len_;
-            //         // 更新 ATT
-            //         active_transaction_table.erase(commit_log_record->log_tid_);
-            //         // 更新 lsn2log
-            //         lsn2log[commit_log_record->lsn_] = std::move(commit_log_record);
+                    // 更新 ATT
+                    active_transaction_table.erase(commit_log_record->log_tid_);
+                    // 更新 lsn2log
+                    lsn2log[commit_log_record->lsn_] = std::move(commit_log_record);
 
                     break;
                 }
