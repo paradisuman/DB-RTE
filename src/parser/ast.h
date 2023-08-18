@@ -249,9 +249,9 @@ struct SelectStmt : public TreeNode {
     AggregateType aggregate_type;
     std::string alias;
 
-    static struct OrderSelect {} order;
-    static struct SingleSelect {} single;
-    static struct AggregateSelect {} aggregate;
+    inline static struct OrderSelect {} order;
+    inline static struct SingleSelect {} single;
+    inline static struct AggregateSelect {} aggregate;
 
     SelectStmt(AggregateSelect policy,
                std::vector<std::shared_ptr<Col>> cols_,
