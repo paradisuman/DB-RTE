@@ -45,8 +45,6 @@ class IndexScanExecutor : public AbstractExecutor {
     };
 
     bool _checkConds() {
-        auto a = scan_->rid();
-        auto b = fh_->get_record(scan_->rid(), context_);
         return executor_utils::checkConds(
             fh_->get_record(scan_->rid(), context_),
             conds_,
@@ -58,6 +56,7 @@ class IndexScanExecutor : public AbstractExecutor {
     void init_key_range (RmRecord &min_rm, RmRecord &max_rm) {
         size_t offset = 0;
         // 检查更新范围
+        bool is_last = false;
         for (auto &col : index_meta_.cols) {
             Value tem_min{col.type}, tem_max{col.type};
             // 设置默认最大，最小值
@@ -95,7 +94,12 @@ class IndexScanExecutor : public AbstractExecutor {
                     throw InvalidTypeError();
                 }
             }
-
+            if (is_last) {
+                std::copy_n(tem_max.raw->data, col.len, max_rm.data + offset);
+                std::copy_n(tem_min.raw->data, col.len, min_rm.data + offset);
+                offset += col.len;
+                continue;
+            }
             // 更新,这里只需要某些操作符，不等这种不需要考虑，到时候跑的时候再测试一遍
             for (auto &cond : fed_conds_) {
                 // 直接遍历找到每个col的判断类型
@@ -114,6 +118,7 @@ class IndexScanExecutor : public AbstractExecutor {
                     // >和>= ，更新最小值
                     case OP_GT: { }
                     case OP_GE: {
+                        is_last = true;
                         if(binop(OP_GT, cond.rhs_val, tem_min)) {
                             tem_min = cond.rhs_val;
                         }
@@ -122,6 +127,7 @@ class IndexScanExecutor : public AbstractExecutor {
                     // <和<= ，更新最大值
                     case OP_LT: { }
                     case OP_LE: {
+                        is_last = true;
                         if(binop(OP_LT, cond.rhs_val, tem_max)) {
                             tem_max = cond.rhs_val;
                         }
@@ -129,6 +135,7 @@ class IndexScanExecutor : public AbstractExecutor {
                     }
                     // != 这里后续再检测
                     case OP_NE: {
+                        is_last = true;
                         break;
                     }
                     default:
@@ -136,8 +143,7 @@ class IndexScanExecutor : public AbstractExecutor {
                     }
                 }
             }
-            // 加一个assert判定
-            // assert binop(OP_LE, tem_min, tem_max);
+
             std::copy_n(tem_max.raw->data, col.len, max_rm.data + offset);
             std::copy_n(tem_min.raw->data, col.len, min_rm.data + offset);
             offset += col.len;
@@ -198,7 +204,6 @@ class IndexScanExecutor : public AbstractExecutor {
             max_,
             sm_manager_->get_bpm()
         );
-        auto a = scan_->rid();
 
 
         // 在范围中和seq同理

@@ -81,6 +81,28 @@ class Page {
 
     inline void RUnLock() { rwlock.unlock_shared(); }
 
+    inline void try_Rlock() {
+        if (rwlock.try_lock_shared()) {
+            // 成功获取共享锁，可以安全读取数据
+            std::cout<<"not lock share!"<<std::endl;
+            rwlock.unlock_shared();
+        } else {
+            std::cout<<"!!!!!!!!!!!!!!!!!!share lock!!!!!!!!!!!!!!!!"<<std::endl;
+            // 未能获取共享锁，可能需要后续处理或重试
+        }
+    }
+
+    inline void try_Wlock() {
+        if (rwlock.try_lock()) {
+            std::cout<<"not lock exclusive!"<<std::endl;
+            // 成功获取共享锁，可以安全读取数据
+            rwlock.unlock();
+        } else {
+            std::cout<<"!!!!!!!!!!!!!!!!!!exclusive lock!!!!!!!!!!!!!!!!"<<std::endl;
+            // 未能获取共享锁，可能需要后续处理或重试
+        }
+    }
+
 
    private:
     void reset_memory() { memset(data_, OFFSET_PAGE_START, PAGE_SIZE); }  // 将data_的PAGE_SIZE个字节填充为0

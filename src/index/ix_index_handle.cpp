@@ -355,7 +355,7 @@ std::pair<IxNodeHandle *, bool> IxIndexHandle::find_leaf_page(const char *key, O
         }
     }
 
-    // 叶节点单独处理
+    //叶节点单独处理
     if (operation != Operation::FIND) {
         auto index_latch_set = transaction->get_index_latch_page_set();
         index_latch_set->pop_back();
@@ -588,7 +588,7 @@ bool IxIndexHandle::delete_entry(const char *key, Transaction *transaction) {
     // 2. 在该叶子结点中删除键值对
     // 3. 如果删除成功需要调用CoalesceOrRedistribute来进行合并或重分配操作，并根据函数返回结果判断是否有结点需要删除
     // 4. fix 如果需要并发，并且需要删除叶子结点，则需要在事务的delete_page_set中添加删除结点的对应页面；记得处理并发的上锁
-    auto result = find_leaf_page(key, Operation::FIND, transaction, true);
+    auto result = find_leaf_page(key, Operation::DELETE, transaction, true);
     int pos = result.first->lower_bound(key);
     bool root_is_latch = result.second;
 
@@ -1093,10 +1093,12 @@ void IxIndexHandle::update_node(IxNodeHandle *parent_node, IxNodeHandle *node, c
 bool IxIndexHandle::is_key_exist(const char *key,  Transaction *transaction) {
     auto result = find_leaf_page(key, Operation::FIND, transaction);
     IxNodeHandle *leaf_node = result.first;
+    
     int key_num = leaf_node->page_hdr->num_key;
     for(int i = 0;i<key_num;i++){
         char *key_addr = leaf_node->get_key(i);
         if(ix_compare(key, key_addr, leaf_node->file_hdr->col_types_, leaf_node->file_hdr->col_lens_) == 0) {
+            leaf_node->page->RUnLock();
             buffer_pool_manager_->unpin_page(leaf_node->get_page_id(), false);
             return true;
         }
@@ -1104,6 +1106,7 @@ bool IxIndexHandle::is_key_exist(const char *key,  Transaction *transaction) {
 
     leaf_node->page->RUnLock();
     buffer_pool_manager_->unpin_page(leaf_node->get_page_id(), false);
+    
     return false;
 }
 

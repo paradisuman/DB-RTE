@@ -86,7 +86,6 @@ struct TabMeta {
     }
 
     /* 判断当前表上是否建有指定索引，索引包含的字段为col_names */
-    // 最左匹配原则，自动调换col_names的顺序
     bool is_index(const std::vector<std::string>& col_names) const {
         for(auto& index: indexes) {
             if(index.col_num == col_names.size()) {
@@ -98,66 +97,77 @@ struct TabMeta {
                 if(i == index.col_num) return true;
             }
         }
+        return false;
     }
+
+    // bool can_index(const std::vector<std::string>& col_names, const std::vector<CompOp>& ops) const {
+    //     for(auto& index: indexes) {
+    //         bool isequ = true;
+    //         if(index.col_num == col_names.size()) {
+    //             size_t i = 0;
+    //             for(; i < index.col_num; ++i) {
+    //                 if (index.cols[i].name.compare(col_names[i]) != 0 && ops[i] == OP_EQ) {
+    //                     break;
+    //                 }
+    //             }
+    //             if (i < index.col_num && index.cols[i].name.compare(col_names[i]) == 0) {
+    //                 i++;
+    //             }
+    //             if(i > 0) return true;
+    //         }
+    //     }
+    //     return false;
+    // }
 
 
     // 最左匹配原则，自动调换col_names的顺序
-    std::pair<bool, IndexMeta> find_index(const std::vector<std::string>& col_names, std::vector<Condition> curr_conds) const {
-
-        // 先统计cols
-        std::map<std::string, CompOp> is_euq;
-        std::map<std::string, bool> col_exist;
-        for(int i = 0; i < col_names.size(); i++) {
-            col_exist[col_names[i]] = true;
-            is_euq[col_names[i]] = curr_conds[i].op;
-        }
-        // 目前：支持最左匹配，且会自动调换顺序
-
-        // 找最匹配的index_meta
-        int min_not_match_cols = INT32_MAX;
-        IndexMeta const *most_match_index = nullptr;
-
-        for(auto &index : indexes) {
-            bool is_equ = true;
-            size_t i = 0;
-            int not_match_cols = 0;
-            while (i < index.col_num) {
-                if(col_exist[index.cols[i].name] && is_euq[index.cols[i].name] == OP_EQ) {
-                    i++;
-                }else{
-                    break;
-                }
-            }
-
-            if (col_exist[index.cols[i].name] && is_euq[index.cols[i].name] != OP_NE) {
-                i++;
-            }
-
-            if (i == 0) {
-                continue;
-            }
-            // 3. 检查之后的所有列是否都没有在索引中
-            while (i < index.col_num) {
-                if(!col_exist[index.cols[i].name]) {
-                    i++;
-                    not_match_cols++;
-                }else {
-                    break;
-                }
-            }
-            // 4. 如果i == col_num那么说明之后的所有列都没有用到该索引，否则则说明用到了，该索引不符合最左匹配
-            if(i == index.col_num && not_match_cols < min_not_match_cols) {
-                most_match_index = &index;
-                min_not_match_cols = not_match_cols;
-            }
-        }
-
-        if(most_match_index != nullptr) {
-            return {true, *most_match_index};
-        }else {
-            return {false, IndexMeta()};
-        }
-    }
+    // std::pair<bool, IndexMeta> find_index(const std::vector<std::string>& col_names, std::vector<Condition> curr_conds) const {
+    //     auto &index_meta = sm_manager_->db_.get_table(tab_name).indexes;
+    //     std::vector<std::string> indexed_col;
+    //     int maxlen = -1;
+    //     for (auto &meta: index_meta) {
+    //         for (auto index_detail: meta.cols) {
+    //             indexed_col.push_back(index_detail.name);
+    //         }
+    //         // 最左匹配要求前面全是equal，最后一个可以是大于小于或range(x > 1 && x < 10)
+    //         std::vector<std::vector<bool>> status(3, std::vector<bool>(indexed_col.size(), false));
+    //         int match_len = 0;
+    //         for (size_t i = 0; i < curr_conds.size(); i++) {
+    //             auto &cond = curr_conds[i];
+    //             auto pos = std::find(indexed_col.begin(), indexed_col.end(), cond.lhs_col.col_name) - indexed_col.begin();
+    //             if (cond.is_rhs_val && cond.op != OP_NE) {
+    //                 if (pos == 0 || status[1][pos - 1] || status[0][pos] || status[2][pos]) {
+    //                     // do nothing
+    //                     switch (cond.op) {
+    //                         case OP_EQ:
+    //                             status[1][pos] = true;
+    //                             break;
+    //                         case OP_NE:
+    //                             // never reach
+    //                             break;
+    //                         case OP_LT:
+    //                         case OP_LE:
+    //                             status[2][pos] = true;
+    //                             break;
+    //                         case OP_GT:
+    //                         case OP_GE:
+    //                             status[0][pos] = true;
+    //                             break;
+    //                     }
+    //                 } else {
+    //                     break;
+    //                 }
+    //                 match_len = i;
+    //             }
+    //         }
+    //         if (match_len > maxlen) {
+    //             maxlen = match_len;
+    //             index_col_names = std::move(indexed_col);
+    //         }
+    //         indexed_col.clear();
+    //     }
+    //     return index_col_names.size() > 0;
+    // }
 
     /* 根据字段名称集合获取索引元数据 */
     std::vector<IndexMeta>::iterator get_index_meta(const std::vector<std::string>& col_names) {
