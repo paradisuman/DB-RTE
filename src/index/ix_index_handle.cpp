@@ -33,13 +33,13 @@ int IxNodeHandle::lower_bound(const char *target) const {
         int right = page_hdr->num_key;
         int result = page_hdr->num_key;
 
-        while (left <= right) {
+        while (left < right) {
             int mid = left + (right - left) / 2;
             char *key_addr = get_key(mid);
             if (ix_compare(key_addr , target, file_hdr->col_types_, file_hdr->col_lens_) < 0) {
                 left = mid + 1;
             } else {
-                right = mid - 1;
+                right = mid;
             }
         }
 
@@ -74,13 +74,13 @@ int IxNodeHandle::upper_bound(const char *target) const {
         int right = page_hdr->num_key;
         int result = page_hdr->num_key;
 
-        while (left <= right) {
+        while (left < right) {
             int mid = left + (right - left) / 2;
             char *key_addr = get_key(mid);
             if (ix_compare(key_addr, target, file_hdr->col_types_, file_hdr->col_lens_) <= 0) {
                 left = mid + 1;
             } else {
-                right = mid - 1;
+                right = mid;
             }
         }
 
