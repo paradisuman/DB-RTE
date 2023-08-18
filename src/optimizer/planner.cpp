@@ -168,7 +168,7 @@ std::shared_ptr<Plan> Planner::physical_optimization(std::shared_ptr<Query> quer
     // 其他物理优化
 
     // 处理orderby
-    // plan = generate_sort_plan(query, std::move(plan)); 
+    plan = generate_sort_plan(query, std::move(plan)); 
 
     return plan;
 }
