@@ -270,7 +270,9 @@ struct SelectStmt : public TreeNode {
                std::vector<std::shared_ptr<OrderBy>> orders_,
                int limit_ = -1) :
             cols(std::move(cols_)), tabs(std::move(tabs_)), conds(std::move(conds_)), 
-            orders(std::move(orders_)), limit(limit_) { }
+            orders(std::move(orders_)), limit(limit_) {
+                has_sort = !orders.empty();
+            }
 };
 
 // Semantic value
