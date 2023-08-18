@@ -21,7 +21,7 @@ using namespace ast;
 %define parse.error verbose
 
 // keywords
-%token SHOW TABLES CREATE TABLE DROP DESC INSERT INTO VALUES DELETE FROM ASC ORDER BY LOAD
+%token SHOW TABLES CREATE TABLE DROP DESC INSERT INTO VALUES DELETE FROM ASC ORDER BY LOAD LIMIT
 WHERE UPDATE SET SELECT INT CHAR FLOAT BIGINT DATETIME INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_COMMIT TXN_ABORT TXN_ROLLBACK ORDER_BY
 COUNT MAX MIN SUM AS
 // non-keywords
@@ -51,9 +51,12 @@ COUNT MAX MIN SUM AS
 %type <sv_set_clauses> setClauses
 %type <sv_cond> condition
 %type <sv_conds> whereClause optWhereClause
-%type <sv_orderby>  order_clause opt_order_clause
+%type <sv_orderby> order_clause
 %type <sv_orderby_dir> opt_asc_desc
 %type <sv_aggregate_type> aggregate_function
+
+%type <sv_int> opt_limit
+%type <sv_orderbys> order_clause_list opt_order_clause
 
 %%
 start:
@@ -152,13 +155,13 @@ dml:
     {
         $$ = std::make_shared<UpdateStmt>($2, $4, $5);
     }
-    |   SELECT selector FROM tableList optWhereClause opt_order_clause
+    |   SELECT selector FROM tableList optWhereClause opt_order_clause opt_limit
     {
-        $$ = std::make_shared<SelectStmt>($2, $4, $5, $6);
+        $$ = std::make_shared<SelectStmt>($2, $4, $5, $6, $7);
     }
-    |   SELECT aggregate_function '(' selector ')' AS colName FROM tableList optWhereClause opt_order_clause
+    |   SELECT aggregate_function '(' selector ')' AS colName FROM tableList optWhereClause
     {
-        $$ = std::make_shared<SelectStmt>($4, $9, $10, $11, $2, $7);
+        $$ = std::make_shared<SelectStmt>(ast::SelectStmt::aggregate, $4, $9, $10, $2, $7);
     }
     |   LOAD path INTO tbName
     {
@@ -403,15 +406,37 @@ tableList:
     ;
 
 opt_order_clause:
-    ORDER BY order_clause      
+        ORDER BY order_clause_list
     { 
         $$ = $3; 
     }
     |   /* epsilon */ { /* ignore*/ }
     ;
 
+opt_limit:
+        LIMIT VALUE_INT
+    {
+        $$ = $2;
+    }
+    |   /* epsilon */
+    {
+        $$ = -1;
+    }
+    ;
+
+order_clause_list:
+        order_clause
+    {
+        $$ = std::vector<std::shared_ptr<OrderBy>>{$1};
+    }
+    |   order_clause_list ',' order_clause
+    {
+        $$.push_back($3);
+    }
+    ;
+
 order_clause:
-      col  opt_asc_desc 
+        col opt_asc_desc 
     { 
         $$ = std::make_shared<OrderBy>($1, $2);
     }

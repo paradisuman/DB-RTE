@@ -186,6 +186,11 @@ private:
                 print_val(x->order, offset);
             }
 
+            print_node_list(x->cols, offset);
+            print_val_list(x->tabs, offset);
+            print_node_list(x->conds, offset);
+            print_node_list(x->orders, offset);
+            print_val(x->limit, offset);
         } else if (auto x = std::dynamic_pointer_cast<TxnBegin>(node)) {
             std::cout << "BEGIN\n";
         } else if (auto x = std::dynamic_pointer_cast<TxnCommit>(node)) {
@@ -194,6 +199,9 @@ private:
             std::cout << "ABORT\n";
         } else if (auto x = std::dynamic_pointer_cast<TxnRollback>(node)) {
             std::cout << "ROLLBACK\n";
+        } else if (auto x = std::dynamic_pointer_cast<OrderBy>(node)) {
+            print_val(x->col->tab_name + "." + x->col->col_name, offset);
+            print_val(x->orderby_dir, offset);
         } else {
             assert(0);
         }
