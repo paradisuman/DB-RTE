@@ -217,6 +217,11 @@ class IxIndexHandle {
 
     bool is_key_exist(const char *key, Transaction *transaction);
 
+    bool is_secure(IxNodeHandle *node, Operation operation);
+
+    void unlock_unpin_all_pages(Transaction* transaction);
+
+
 
    private:
     // 辅助函数
