@@ -78,8 +78,8 @@ void RecoveryManager::analyze() {
                     // insert_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += insert_log_record->log_tot_len_;
-                //     // 更新 ATT
-                //     active_transaction_table[insert_log_record->log_tid_].push_back(insert_log_record->lsn_);
+                    // 更新 ATT
+                    active_transaction_table[insert_log_record->log_tid_].push_back(insert_log_record->lsn_);
                 //     // 查看更改的页面是否是脏页 如果是则更新 DPT
                 //     const auto tab_name = std::string(insert_log_record->table_name_.get(), insert_log_record->table_name_size_);
                 //     const auto rid = insert_log_record->rid_;
@@ -97,8 +97,8 @@ void RecoveryManager::analyze() {
                 //     if (redo_log_in_page.redo_logs_[0] < insert_log_record->lsn_) {
                 //         redo_log_in_page.redo_logs_.push_back(insert_log_record->lsn_);
                 //     }
-                //     // 更新 lsn2log
-                //     lsn2log[insert_log_record->lsn_] = std::move(insert_log_record);
+                    // 更新 lsn2log
+                    lsn2log[insert_log_record->lsn_] = std::move(insert_log_record);
 
                     break;
                 }
@@ -109,8 +109,8 @@ void RecoveryManager::analyze() {
                     // delete_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += delete_log_record->log_tot_len_;
-                //     // 更新 ATT
-                //     active_transaction_table[delete_log_record->log_tid_].push_back(delete_log_record->lsn_);
+                    // 更新 ATT
+                    active_transaction_table[delete_log_record->log_tid_].push_back(delete_log_record->lsn_);
                 //     // 更新 DPT
                 //     // 查看更改的页面是否是脏页 如果是则更新 DPT
                 //     const auto tab_name = std::string(delete_log_record->table_name_.get(), delete_log_record->table_name_size_);
@@ -129,8 +129,8 @@ void RecoveryManager::analyze() {
                 //     if (redo_log_in_page.redo_logs_[0] < delete_log_record->lsn_) {
                 //         redo_log_in_page.redo_logs_.push_back(delete_log_record->lsn_);
                 //     }
-                //     // 更新 lsn2log
-                //     lsn2log[delete_log_record->lsn_] = std::move(delete_log_record);
+                    // 更新 lsn2log
+                    lsn2log[delete_log_record->lsn_] = std::move(delete_log_record);
 
                     break;
                 }
@@ -141,8 +141,8 @@ void RecoveryManager::analyze() {
                     // update_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += update_log_record->log_tot_len_;
-                //     // 更新 ATT
-                //     active_transaction_table[update_log_record->log_tid_].push_back(update_log_record->lsn_);
+                    // 更新 ATT
+                    active_transaction_table[update_log_record->log_tid_].push_back(update_log_record->lsn_);
                 //     // 查看更改的页面是否是脏页 如果是则更新 DPT
                 //     const auto tab_name = std::string(update_log_record->table_name_.get(), update_log_record->table_name_size_);
                 //     const auto rid = update_log_record->rid_;
@@ -160,8 +160,8 @@ void RecoveryManager::analyze() {
                 //     if (redo_log_in_page.redo_logs_[0] < update_log_record->lsn_) {
                 //         redo_log_in_page.redo_logs_.push_back(update_log_record->lsn_);
                 //     }
-                //     // 更新 lsn2log
-                //     lsn2log[update_log_record->lsn_] = std::move(update_log_record);
+                    // 更新 lsn2log
+                    lsn2log[update_log_record->lsn_] = std::move(update_log_record);
 
                     break;
                 }
