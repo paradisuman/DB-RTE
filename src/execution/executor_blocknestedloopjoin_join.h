@@ -114,6 +114,8 @@ public:
 
     size_t tupleLen() const override { return len_; }
 
+    Rid &rid() override { return _abstract_rid; }
+
     virtual ColMeta get_col_offset(const TabCol &target) override {
         auto ret = std::find_if(
             cols_.begin(),
