@@ -246,7 +246,7 @@ struct SelectStmt : public TreeNode {
     std::vector<std::shared_ptr<OrderBy>> orders;
     int limit = -1;
 
-    AggregateType aggregate_type;
+    AggregateType aggregate_type = SV_NONE;
     std::string alias;
 
     inline static struct OrderSelect {} order;
