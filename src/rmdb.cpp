@@ -329,7 +329,9 @@ int main(int argc, char **argv) {
         sm_manager->open_db(db_name);
 
         // recovery database
-        recovery->analyze();
+        try {
+            recovery->analyze();
+        } catch (std::exception &e) {}
         // recovery->redo();
         // recovery->undo();
         
