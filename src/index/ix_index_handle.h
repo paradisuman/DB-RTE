@@ -15,7 +15,7 @@ See the Mulan PSL v2 for more details. */
 
 enum class Operation { FIND = 0, INSERT, DELETE };  // 三种操作：查找、插入、删除
 
-static const bool binary_search = false;
+static const bool binary_search = true;
 
 inline int ix_compare(const char *a, const char *b, ColType type, int col_len) {
     switch (type) {
