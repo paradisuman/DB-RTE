@@ -178,6 +178,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
                 char *rec_buf = Tuple->data + col.offset;
                 if (col.type == TYPE_INT) {
                     col_str = std::to_string(*(int *)rec_buf);
+                } else if (col.type == TYPE_BIGINT) {
+                    col_str = std::to_string(*(int64_t *)rec_buf);
                 } else if (col.type == TYPE_FLOAT) {
                     col_str = std::to_string(*(float *)rec_buf);
                 } else if (col.type == TYPE_DATETIME) {
@@ -262,6 +264,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         val.type = col.type;
         if (col.type == TYPE_INT)
             val.int_val = 0;
+        else if (col.type == TYPE_BIGINT)
+            val.bigint_val = 0;
         else if (col.type == TYPE_FLOAT)
             val.float_val = 0;
         else if (col.type == TYPE_STRING)
@@ -286,6 +290,7 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
             std::vector<std::string> columns;
             switch (col.type) {
                 case TYPE_INT : columns.push_back(std::to_string(*(int *)Tuple->data)); break;
+                case TYPE_BIGINT : columns.push_back(std::to_string(*(int64_t *)Tuple->data)); break;
                 case TYPE_FLOAT : columns.push_back(std::to_string(*(float *)Tuple->data)); break;
                 case TYPE_STRING : columns.push_back(std::string((char *)Tuple->data, col.len)); break;
                 default : throw InternalError("Unsupported type.");
@@ -330,6 +335,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         val.type = col.type;
         if (col.type == TYPE_INT)
             val.int_val = 0;
+        else if (col.type == TYPE_BIGINT)
+            val.bigint_val = 0;
         else if (col.type == TYPE_FLOAT)
             val.float_val = 0;
         else if (col.type == TYPE_STRING)
@@ -354,6 +361,7 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
             std::vector<std::string> columns;
             switch (col.type) {
                 case TYPE_INT : columns.push_back(std::to_string(*(int *)Tuple->data)); break;
+                case TYPE_BIGINT : columns.push_back(std::to_string(*(int64_t *)Tuple->data)); break;
                 case TYPE_FLOAT : columns.push_back(std::to_string(*(float *)Tuple->data)); break;
                 case TYPE_STRING : columns.push_back(std::string((char *)Tuple->data, col.len)); break;
                 default : throw InternalError("Unsupported type.");
@@ -393,6 +401,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         sum.type = col.type;
         if (col.type == TYPE_INT)
             sum.int_val = 0;
+        else if (col.type == TYPE_BIGINT)
+            sum.bigint_val = 0;
         else if (col.type == TYPE_FLOAT)
             sum.float_val = 0;
         // 执行query_plan
@@ -403,6 +413,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
             val.load_raw(col.len, Tuple->data);
             if (col.type == TYPE_INT) {
                 sum.int_val += val.int_val;
+            } else if (col.type == TYPE_BIGINT) {
+                sum.bigint_val += val.bigint_val;
             } else if (col.type == TYPE_FLOAT) {
                 sum.float_val += val.float_val;
             }
@@ -410,12 +422,16 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         // print record into buffer
         if (col.type == TYPE_INT) {
             rec_printer.print_record({std::to_string(sum.int_val)}, context);
+        } else if (col.type == TYPE_BIGINT) {
+            rec_printer.print_record({std::to_string(sum.bigint_val)}, context);
         } else if (col.type == TYPE_FLOAT) {
             rec_printer.print_record({std::to_string(sum.float_val)}, context);
         }
         if (output2file) {
             if (col.type == TYPE_INT) {
                 outfile << "|" << " " << std::to_string(sum.int_val) << " |" << '\n';
+            } else if (col.type == TYPE_BIGINT) {
+                outfile << "|" << " " << std::to_string(sum.bigint_val) << " |" << '\n';
             } else if (col.type == TYPE_FLOAT) {
                 outfile << "|" << " " << std::to_string(sum.float_val) << " |" << '\n';
             }
