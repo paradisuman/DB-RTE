@@ -34,10 +34,10 @@ void RecoveryManager::analyze() {
                     // begin_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += begin_log_record->log_tot_len_;
-                    // 更新 ATT
-                    active_transaction_table.emplace(begin_log_record->log_tid_, begin_log_record->lsn_);
-                    // 更新 lsn2log
-                    lsn2log[begin_log_record->lsn_] = std::move(begin_log_record);
+            //         // 更新 ATT
+            //         active_transaction_table.emplace(begin_log_record->log_tid_, begin_log_record->lsn_);
+            //         // 更新 lsn2log
+            //         lsn2log[begin_log_record->lsn_] = std::move(begin_log_record);
 
                     break;
                 }
@@ -49,10 +49,10 @@ void RecoveryManager::analyze() {
                     // abort_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += abort_log_record->log_tot_len_;
-                    // 更新 ATT
-                    active_transaction_table.erase(abort_log_record->log_tid_);
-                    // 更新 lsn2log
-                    lsn2log[abort_log_record->lsn_] = std::move(abort_log_record);
+            //         // 更新 ATT
+            //         active_transaction_table.erase(abort_log_record->log_tid_);
+            //         // 更新 lsn2log
+            //         lsn2log[abort_log_record->lsn_] = std::move(abort_log_record);
 
                     break;
                 }
@@ -63,21 +63,21 @@ void RecoveryManager::analyze() {
                     // commit_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += commit_log_record->log_tot_len_;
-                    // 更新 ATT
-                    active_transaction_table.erase(commit_log_record->log_tid_);
-                    // 更新 lsn2log
-                    lsn2log[commit_log_record->lsn_] = std::move(commit_log_record);
+            //         // 更新 ATT
+            //         active_transaction_table.erase(commit_log_record->log_tid_);
+            //         // 更新 lsn2log
+            //         lsn2log[commit_log_record->lsn_] = std::move(commit_log_record);
 
                     break;
                 }
-                // // 记录事务的操作
-                // case LogType::INSERT : {
-                //     auto insert_log_record = std::make_shared<InsertLogRecord>();
-                //     // 反序列化得到日志记录
-                //     insert_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                //     // insert_log_record->format_print();
-                //     // buffer 指针移动
-                //     buffer_.offset_ += insert_log_record->log_tot_len_;
+                // 记录事务的操作
+                case LogType::INSERT : {
+                    auto insert_log_record = std::make_shared<InsertLogRecord>();
+                    // 反序列化得到日志记录
+                    insert_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                    // insert_log_record->format_print();
+                    // buffer 指针移动
+                    buffer_.offset_ += insert_log_record->log_tot_len_;
                 //     // 更新 ATT
                 //     active_transaction_table[insert_log_record->log_tid_].push_back(insert_log_record->lsn_);
                 //     // 查看更改的页面是否是脏页 如果是则更新 DPT
@@ -100,15 +100,15 @@ void RecoveryManager::analyze() {
                 //     // 更新 lsn2log
                 //     lsn2log[insert_log_record->lsn_] = std::move(insert_log_record);
 
-                //     break;
-                // }
-                // case LogType::DELETE : {
-                //     auto delete_log_record = std::make_shared<DeleteLogRecord>();
-                //     // 反序列化得到日志记录
-                //     delete_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                //     // delete_log_record->format_print();
-                //     // buffer 指针移动
-                //     buffer_.offset_ += delete_log_record->log_tot_len_;
+                    break;
+                }
+                case LogType::DELETE : {
+                    auto delete_log_record = std::make_shared<DeleteLogRecord>();
+                    // 反序列化得到日志记录
+                    delete_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                    // delete_log_record->format_print();
+                    // buffer 指针移动
+                    buffer_.offset_ += delete_log_record->log_tot_len_;
                 //     // 更新 ATT
                 //     active_transaction_table[delete_log_record->log_tid_].push_back(delete_log_record->lsn_);
                 //     // 更新 DPT
@@ -132,15 +132,15 @@ void RecoveryManager::analyze() {
                 //     // 更新 lsn2log
                 //     lsn2log[delete_log_record->lsn_] = std::move(delete_log_record);
 
-                //     break;
-                // }
-                // case LogType::UPDATE : {
-                //     auto update_log_record = std::make_shared<UpdateLogRecord>();
-                //     // 反序列化得到日志记录
-                //     update_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                //     // update_log_record->format_print();
-                //     // buffer 指针移动
-                //     buffer_.offset_ += update_log_record->log_tot_len_;
+                    break;
+                }
+                case LogType::UPDATE : {
+                    auto update_log_record = std::make_shared<UpdateLogRecord>();
+                    // 反序列化得到日志记录
+                    update_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                    // update_log_record->format_print();
+                    // buffer 指针移动
+                    buffer_.offset_ += update_log_record->log_tot_len_;
                 //     // 更新 ATT
                 //     active_transaction_table[update_log_record->log_tid_].push_back(update_log_record->lsn_);
                 //     // 查看更改的页面是否是脏页 如果是则更新 DPT
@@ -163,8 +163,8 @@ void RecoveryManager::analyze() {
                 //     // 更新 lsn2log
                 //     lsn2log[update_log_record->lsn_] = std::move(update_log_record);
 
-                //     break;
-                // }
+                    break;
+                }
             } // end of switch
         } // end of read buffer
     } // end of read log
