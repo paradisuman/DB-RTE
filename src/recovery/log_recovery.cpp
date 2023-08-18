@@ -70,101 +70,101 @@ void RecoveryManager::analyze() {
 
                     break;
                 }
-                // 记录事务的操作
-                case LogType::INSERT : {
-                    auto insert_log_record = std::make_shared<InsertLogRecord>();
-                    // 反序列化得到日志记录
-                    insert_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                    // insert_log_record->format_print();
-                    // buffer 指针移动
-                    buffer_.offset_ += insert_log_record->log_tot_len_;
-                    // 更新 ATT
-                    active_transaction_table[insert_log_record->log_tid_].push_back(insert_log_record->lsn_);
-                    // 查看更改的页面是否是脏页 如果是则更新 DPT
-                    const auto tab_name = std::string(insert_log_record->table_name_.get(), insert_log_record->table_name_size_);
-                    const auto rid = insert_log_record->rid_;
-                    auto table_file = sm_manager_->fhs_.at(tab_name).get();
-                    auto table_fd = table_file->GetFd();
-                    const auto page_id = PageId {table_fd, rid.page_no};
+                // // 记录事务的操作
+                // case LogType::INSERT : {
+                //     auto insert_log_record = std::make_shared<InsertLogRecord>();
+                //     // 反序列化得到日志记录
+                //     insert_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                //     // insert_log_record->format_print();
+                //     // buffer 指针移动
+                //     buffer_.offset_ += insert_log_record->log_tot_len_;
+                //     // 更新 ATT
+                //     active_transaction_table[insert_log_record->log_tid_].push_back(insert_log_record->lsn_);
+                //     // 查看更改的页面是否是脏页 如果是则更新 DPT
+                //     const auto tab_name = std::string(insert_log_record->table_name_.get(), insert_log_record->table_name_size_);
+                //     const auto rid = insert_log_record->rid_;
+                //     auto table_file = sm_manager_->fhs_.at(tab_name).get();
+                //     auto table_fd = table_file->GetFd();
+                //     const auto page_id = PageId {table_fd, rid.page_no};
 
-                    if (dirty_page_table.count(page_id) == 0) {
-                        auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
-                        auto &redo_log_in_page = itr.first->second;
-                        redo_log_in_page.table_file_ = table_file;
-                        redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
-                    }
-                    auto &redo_log_in_page = dirty_page_table[page_id];
-                    if (redo_log_in_page.redo_logs_[0] < insert_log_record->lsn_) {
-                        redo_log_in_page.redo_logs_.push_back(insert_log_record->lsn_);
-                    }
-                    // 更新 lsn2log
-                    lsn2log[insert_log_record->lsn_] = std::move(insert_log_record);
+                //     if (dirty_page_table.count(page_id) == 0) {
+                //         auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
+                //         auto &redo_log_in_page = itr.first->second;
+                //         redo_log_in_page.table_file_ = table_file;
+                //         redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
+                //     }
+                //     auto &redo_log_in_page = dirty_page_table[page_id];
+                //     if (redo_log_in_page.redo_logs_[0] < insert_log_record->lsn_) {
+                //         redo_log_in_page.redo_logs_.push_back(insert_log_record->lsn_);
+                //     }
+                //     // 更新 lsn2log
+                //     lsn2log[insert_log_record->lsn_] = std::move(insert_log_record);
 
-                    break;
-                }
-                case LogType::DELETE : {
-                    auto delete_log_record = std::make_shared<DeleteLogRecord>();
-                    // 反序列化得到日志记录
-                    delete_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                    // delete_log_record->format_print();
-                    // buffer 指针移动
-                    buffer_.offset_ += delete_log_record->log_tot_len_;
-                    // 更新 ATT
-                    active_transaction_table[delete_log_record->log_tid_].push_back(delete_log_record->lsn_);
-                    // 更新 DPT
-                    // 查看更改的页面是否是脏页 如果是则更新 DPT
-                    const auto tab_name = std::string(delete_log_record->table_name_.get(), delete_log_record->table_name_size_);
-                    const auto rid = delete_log_record->rid_;
-                    auto table_file = sm_manager_->fhs_.at(tab_name).get();
-                    auto table_fd = table_file->GetFd();
-                    const auto page_id = PageId {table_fd, rid.page_no};
+                //     break;
+                // }
+                // case LogType::DELETE : {
+                //     auto delete_log_record = std::make_shared<DeleteLogRecord>();
+                //     // 反序列化得到日志记录
+                //     delete_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                //     // delete_log_record->format_print();
+                //     // buffer 指针移动
+                //     buffer_.offset_ += delete_log_record->log_tot_len_;
+                //     // 更新 ATT
+                //     active_transaction_table[delete_log_record->log_tid_].push_back(delete_log_record->lsn_);
+                //     // 更新 DPT
+                //     // 查看更改的页面是否是脏页 如果是则更新 DPT
+                //     const auto tab_name = std::string(delete_log_record->table_name_.get(), delete_log_record->table_name_size_);
+                //     const auto rid = delete_log_record->rid_;
+                //     auto table_file = sm_manager_->fhs_.at(tab_name).get();
+                //     auto table_fd = table_file->GetFd();
+                //     const auto page_id = PageId {table_fd, rid.page_no};
 
-                    if (dirty_page_table.count(page_id) == 0) {
-                        auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
-                        auto &redo_log_in_page = itr.first->second;
-                        redo_log_in_page.table_file_ = table_file;
-                        redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
-                    }
-                    auto &redo_log_in_page = dirty_page_table[page_id];
-                    if (redo_log_in_page.redo_logs_[0] < delete_log_record->lsn_) {
-                        redo_log_in_page.redo_logs_.push_back(delete_log_record->lsn_);
-                    }
-                    // 更新 lsn2log
-                    lsn2log[delete_log_record->lsn_] = std::move(delete_log_record);
+                //     if (dirty_page_table.count(page_id) == 0) {
+                //         auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
+                //         auto &redo_log_in_page = itr.first->second;
+                //         redo_log_in_page.table_file_ = table_file;
+                //         redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
+                //     }
+                //     auto &redo_log_in_page = dirty_page_table[page_id];
+                //     if (redo_log_in_page.redo_logs_[0] < delete_log_record->lsn_) {
+                //         redo_log_in_page.redo_logs_.push_back(delete_log_record->lsn_);
+                //     }
+                //     // 更新 lsn2log
+                //     lsn2log[delete_log_record->lsn_] = std::move(delete_log_record);
 
-                    break;
-                }
-                case LogType::UPDATE : {
-                    auto update_log_record = std::make_shared<UpdateLogRecord>();
-                    // 反序列化得到日志记录
-                    update_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                    // update_log_record->format_print();
-                    // buffer 指针移动
-                    buffer_.offset_ += update_log_record->log_tot_len_;
-                    // 更新 ATT
-                    active_transaction_table[update_log_record->log_tid_].push_back(update_log_record->lsn_);
-                    // 查看更改的页面是否是脏页 如果是则更新 DPT
-                    const auto tab_name = std::string(update_log_record->table_name_.get(), update_log_record->table_name_size_);
-                    const auto rid = update_log_record->rid_;
-                    auto table_file = sm_manager_->fhs_.at(tab_name).get();
-                    auto table_fd = table_file->GetFd();
-                    const auto page_id = PageId {table_fd, rid.page_no};
+                //     break;
+                // }
+                // case LogType::UPDATE : {
+                //     auto update_log_record = std::make_shared<UpdateLogRecord>();
+                //     // 反序列化得到日志记录
+                //     update_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
+                //     // update_log_record->format_print();
+                //     // buffer 指针移动
+                //     buffer_.offset_ += update_log_record->log_tot_len_;
+                //     // 更新 ATT
+                //     active_transaction_table[update_log_record->log_tid_].push_back(update_log_record->lsn_);
+                //     // 查看更改的页面是否是脏页 如果是则更新 DPT
+                //     const auto tab_name = std::string(update_log_record->table_name_.get(), update_log_record->table_name_size_);
+                //     const auto rid = update_log_record->rid_;
+                //     auto table_file = sm_manager_->fhs_.at(tab_name).get();
+                //     auto table_fd = table_file->GetFd();
+                //     const auto page_id = PageId {table_fd, rid.page_no};
 
-                    if (dirty_page_table.count(page_id) == 0) {
-                        auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
-                        auto &redo_log_in_page = itr.first->second;
-                        redo_log_in_page.table_file_ = table_file;
-                        redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
-                    }
-                    auto &redo_log_in_page = dirty_page_table[page_id];
-                    if (redo_log_in_page.redo_logs_[0] < update_log_record->lsn_) {
-                        redo_log_in_page.redo_logs_.push_back(update_log_record->lsn_);
-                    }
-                    // 更新 lsn2log
-                    lsn2log[update_log_record->lsn_] = std::move(update_log_record);
+                //     if (dirty_page_table.count(page_id) == 0) {
+                //         auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
+                //         auto &redo_log_in_page = itr.first->second;
+                //         redo_log_in_page.table_file_ = table_file;
+                //         redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
+                //     }
+                //     auto &redo_log_in_page = dirty_page_table[page_id];
+                //     if (redo_log_in_page.redo_logs_[0] < update_log_record->lsn_) {
+                //         redo_log_in_page.redo_logs_.push_back(update_log_record->lsn_);
+                //     }
+                //     // 更新 lsn2log
+                //     lsn2log[update_log_record->lsn_] = std::move(update_log_record);
 
-                    break;
-                }
+                //     break;
+                // }
             } // end of switch
         } // end of read buffer
     } // end of read log
