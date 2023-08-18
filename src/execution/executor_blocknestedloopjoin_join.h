@@ -55,7 +55,7 @@ public:
         left_len = left_->tupleLen();
         right_len = right_->tupleLen();
         len_ = left_len + right_len;
-    
+
         cols_ = left_->cols();
         auto right_cols = right_->cols();
         for (auto &col: right_cols) {
