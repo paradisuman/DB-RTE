@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "errors.h"
 #include "sm_defs.h"
+#include "common/common.h"
 
 /* 字段元数据 */
 struct ColMeta {
@@ -96,9 +97,78 @@ struct TabMeta {
                 if(i == index.col_num) return true;
             }
         }
-
-        return false;
     }
+
+
+    // 最左匹配原则，自动调换col_names的顺序
+    std::pair<bool, IndexMeta> find_index(const std::vector<std::string>& col_names, std::vector<Condition> curr_conds) const {
+        // for(auto& index: indexes) {
+        //     if(index.col_num == col_names.size()) {
+        //         size_t i = 0;
+        //         for(; i < index.col_num; ++i) {
+        //             if(index.cols[i].name.compare(col_names[i]) != 0)
+        //                 break;
+        //         }
+        //         if(i == index.col_num) return true;
+        //     }
+        // }
+
+        // 先统计cols
+        std::map<std::string, CompOp> is_euq;
+        std::map<std::string, bool> col_exist;
+        for(int i = 0; i < col_names.size(); i++) {
+            col_exist[col_names[i]] = true;
+            is_euq[col_names[i]] = curr_conds[i].op;
+        }
+        // 目前：支持最左匹配，且会自动调换顺序
+
+        // 找最匹配的index_meta
+        int min_not_match_cols = INT32_MAX;
+        IndexMeta const *most_match_index = nullptr;
+
+        for(auto &index : indexes) {
+            bool is_equ = true;
+            size_t i = 0;
+            int not_match_cols = 0;
+            while (i < index.col_num) {
+                if(col_exist[index.cols[i].name] && is_euq[index.cols[i].name] == OP_EQ) {
+                    i++;
+                }else{
+                    break;
+                }
+            }
+
+            if (col_exist[index.cols[i].name] && is_euq[index.cols[i].name] != OP_NE) {
+                i++;
+            }
+
+            if (i == 0) {
+                continue;
+            }
+            // 3. 检查之后的所有列是否都没有在索引中
+            while (i < index.col_num) {
+                if(!col_exist[index.cols[i].name]) {
+                    i++;
+                    not_match_cols++;
+                }else {
+                    break;
+                }
+            }
+            // 4. 如果i == col_num那么说明之后的所有列都没有用到该索引，否则则说明用到了，该索引不符合最左匹配
+            if(i == index.col_num && not_match_cols < min_not_match_cols) {
+                most_match_index = &index;
+                min_not_match_cols = not_match_cols;
+            }
+        }
+
+        if(most_match_index != nullptr) {
+            return {true, *most_match_index};
+        }else {
+            return {false, IndexMeta()};
+        }
+    }
+
+
 
     /* 根据字段名称集合获取索引元数据 */
     std::vector<IndexMeta>::iterator get_index_meta(const std::vector<std::string>& col_names) {

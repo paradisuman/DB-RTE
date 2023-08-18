@@ -79,7 +79,8 @@ class ScanPlan : public Plan
         size_t len_;                               
         std::vector<Condition> fed_conds_;
         std::vector<std::string> index_col_names_;
-    
+        IndexMeta index_meta_;
+
 };
 
 class JoinPlan : public Plan
