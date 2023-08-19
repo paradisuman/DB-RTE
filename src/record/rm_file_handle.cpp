@@ -23,6 +23,7 @@ std::unique_ptr<RmRecord> RmFileHandle::get_record(const Rid& rid, Context* cont
     // 1. 获取指定记录所在的page handle
     // 2. 初始化一个指向RmRecord的指针（赋值其内部的data和size）
 
+    context->lock_mgr_->lock_shared_on_record(context->txn_, rid, fd_);
     // 获取指定记录所在的 page handle
     const auto &target_page_handle = fetch_page_handle(rid.page_no);
 
@@ -69,6 +70,9 @@ Rid RmFileHandle::insert_record(char* buf, Context* context) {
         file_hdr_.num_records_per_page,
         -1
     );
+
+    auto rid = Rid{.page_no = available_page_handle.page->get_page_id().page_no, .slot_no = available_slot_no};
+    context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
 
     // 将buf复制到空闲slot位置
     std::copy_n(
@@ -140,6 +144,8 @@ void RmFileHandle::delete_record(const Rid& rid, Context* context) {
     // 2. 更新page_handle.page_hdr中的数据结构
     // 注意考虑删除一条记录后页面未满的情况，需要调用release_page_handle()
 
+    context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
+
     // 获取指定记录所在的page handle
     auto target_page_handle = fetch_page_handle(rid.page_no);
     // 删除一条记录后页面由满变为未满 需要调用release_page_handle()
@@ -163,6 +169,8 @@ void RmFileHandle::update_record(const Rid& rid, char* buf, Context* context) {
     // Todo:
     // 1. 获取指定记录所在的page handle
     // 2. 更新记录
+
+    context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
 
     // 获取指定记录所在的 page handle
     auto target_page_handle = fetch_page_handle(rid.page_no);

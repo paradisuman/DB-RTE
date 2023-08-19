@@ -69,7 +69,7 @@ int init_tcp_sock(const char *server_host, int server_port) {
 }
 
 int main(int argc, char *argv[]) {
-    int ret = 0;  // set_terminal_noncanonical();
+    //int ret = 0;  // set_terminal_noncanonical();
                   //    if (ret < 0) {
                   //        printf("Warning: failed to set terminal non canonical. Long command may be "
                   //               "handled incorrect\n");
