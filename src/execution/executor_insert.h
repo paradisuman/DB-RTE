@@ -76,7 +76,7 @@ class InsertExecutor : public AbstractExecutor {
         auto insert_log_record = InsertLogRecord(context_->txn_->get_transaction_id(), rec, rid_, tab_name_);
         insert_log_record.prev_lsn_ = context_->txn_->get_prev_lsn();
         auto last_lsn = context_->log_mgr_->add_log_to_buffer(&insert_log_record);
-        context_->log_mgr_->flush_log_to_disk();
+        // context_->log_mgr_->flush_log_to_disk();
         context_->txn_->set_prev_lsn(last_lsn);
 
         // 插入索引

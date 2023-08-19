@@ -31,6 +31,11 @@ lsn_t LogManager::add_log_to_buffer(LogRecord* log_record) {
     std::copy_n(data.get(), log_record->log_tot_len_, log_buffer_.buffer_ + log_buffer_.offset_);
     log_buffer_.offset_ += log_record->log_tot_len_;
 
+    // 日志落盘
+    disk_manager_->write_log(log_buffer_.buffer_, log_buffer_.offset_);
+    log_buffer_.offset_ = 0;
+    persist_lsn_ = global_lsn_ - 1;
+
     return log_record->lsn_;
 }
 

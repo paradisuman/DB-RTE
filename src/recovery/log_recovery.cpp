@@ -16,26 +16,35 @@ See the Mulan PSL v2 for more details. */
  * @description: analyze阶段，需要获得脏页表（DPT）和未完成的事务列表（ATT）
  */
 void RecoveryManager::analyze() {
-
-    while (disk_manager_->read_log(buffer_.buffer_, LOG_BUFFER_SIZE, buffer_.offset_)) {
+    int log_offset = 0;
+    while (true) {
+        std::fill_n(buffer_.buffer_, LOG_BUFFER_SIZE, 0);
         buffer_.offset_ = 0;
 
+        int log_bytes = disk_manager_->read_log(buffer_.buffer_, LOG_BUFFER_SIZE, log_offset);
+        std::cout << "Read log from disk,,," << std::endl;
+        if (log_bytes <= 0) {
+            break;
+        }
+
         while (true) {
-            if (buffer_.offset_ + LOG_HEADER_SIZE >= LOG_BUFFER_SIZE ||
-                *reinterpret_cast<const uint32_t *>(buffer_.buffer_ + buffer_.offset_ + OFFSET_LOG_TOT_LEN) == 0)
+            int log_tot_len = *(uint32_t *)(buffer_.buffer_ + buffer_.offset_ + OFFSET_LOG_TOT_LEN);
+            if (buffer_.offset_ + log_tot_len >= LOG_BUFFER_SIZE || log_tot_len == 0) {
                 break;
+            }
 
             LogType log_type = *reinterpret_cast<const LogType*>(buffer_.buffer_ + buffer_.offset_ + OFFSET_LOG_TYPE);
-
+            // std::cout << log_type << std::endl;
             switch (log_type) {
                 // 事务发生 BEGIN 则说明可能未完成 加入 ATT
                 case LogType::BEGIN : {
                     auto begin_log_record = std::make_shared<BeginLogRecord>();
                     // 反序列化得到日志记录
                     begin_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                    // begin_log_record->format_print();
+                    begin_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += begin_log_record->log_tot_len_;
+                    log_offset += begin_log_record->log_tot_len_;
                     // 更新 ATT
                     active_transaction_table.emplace(begin_log_record->log_tid_, begin_log_record->lsn_);
                     // 更新 lsn2log
@@ -48,9 +57,10 @@ void RecoveryManager::analyze() {
                     auto abort_log_record = std::make_shared<AbortLogRecord>();
                     // 反序列化得到日志记录
                     abort_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                    // abort_log_record->format_print();
+                    abort_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += abort_log_record->log_tot_len_;
+                    log_offset += abort_log_record->log_tot_len_;
                     // 更新 ATT
                     active_transaction_table.erase(abort_log_record->log_tid_);
                     // 更新 lsn2log
@@ -62,9 +72,10 @@ void RecoveryManager::analyze() {
                     auto commit_log_record = std::make_shared<CommitLogRecord>();
                     // 反序列化得到日志记录
                     commit_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                    // commit_log_record->format_print();
+                    commit_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += commit_log_record->log_tot_len_;
+                    log_offset += commit_log_record->log_tot_len_;
                     // 更新 ATT
                     active_transaction_table.erase(commit_log_record->log_tid_);
                     // 更新 lsn2log
@@ -77,9 +88,10 @@ void RecoveryManager::analyze() {
                     auto insert_log_record = std::make_shared<InsertLogRecord>();
                     // 反序列化得到日志记录
                     insert_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                    // insert_log_record->format_print();
+                    insert_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += insert_log_record->log_tot_len_;
+                    log_offset += insert_log_record->log_tot_len_;
                     // 更新 ATT
                     active_transaction_table[insert_log_record->log_tid_].push_back(insert_log_record->lsn_);
                     // 查看更改的页面是否是脏页 如果是则更新 DPT
@@ -117,9 +129,10 @@ void RecoveryManager::analyze() {
                     auto delete_log_record = std::make_shared<DeleteLogRecord>();
                     // 反序列化得到日志记录
                     delete_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                    // delete_log_record->format_print();
+                    delete_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += delete_log_record->log_tot_len_;
+                    log_offset += delete_log_record->log_tot_len_;
                     // 更新 ATT
                     active_transaction_table[delete_log_record->log_tid_].push_back(delete_log_record->lsn_);
                     // 更新 DPT
@@ -158,9 +171,10 @@ void RecoveryManager::analyze() {
                     auto update_log_record = std::make_shared<UpdateLogRecord>();
                     // 反序列化得到日志记录
                     update_log_record->deserialize(buffer_.buffer_ + buffer_.offset_);
-                    // update_log_record->format_print();
+                    update_log_record->format_print();
                     // buffer 指针移动
                     buffer_.offset_ += update_log_record->log_tot_len_;
+                    log_offset += update_log_record->log_tot_len_;
                     // 更新 ATT
                     active_transaction_table[update_log_record->log_tid_].push_back(update_log_record->lsn_);
                     // 查看更改的页面是否是脏页 如果是则更新 DPT
@@ -196,6 +210,9 @@ void RecoveryManager::analyze() {
                 }
             } // end of switch
         } // end of read buffer
+        if (log_bytes < LOG_BUFFER_SIZE) {
+            break;
+        }
     } // end of read log
 }
 
