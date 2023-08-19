@@ -208,7 +208,7 @@ void RecoveryManager::redo() {
         for (lsn_t lsn : redo_log_in_page.redo_logs_) {
             auto log_record = lsn2log[lsn];
             if (auto x = std::dynamic_pointer_cast<InsertLogRecord>(log_record)) {
-                fh.insert_record(x->rid_, x->insert_value_.data);
+                fh.insert_record(x->insert_value_.data, nullptr);
             } else if (auto x = std::dynamic_pointer_cast<DeleteLogRecord>(log_record)) {
                 fh.delete_record(x->rid_, nullptr);
             } else if (auto x = std::dynamic_pointer_cast<UpdateLogRecord>(log_record)) {
@@ -235,7 +235,7 @@ void RecoveryManager::undo() {
                 const auto tab_name = std::string(x->table_name_.get(), x->table_name_size_);
                 auto table_file = sm_manager_->fhs_.at(tab_name).get();
 
-                table_file->insert_record(x->rid_, x->delete_value_.data);
+                table_file->insert_record(x->delete_value_.data, nullptr);
             } else if (auto x = std::dynamic_pointer_cast<UpdateLogRecord>(log)) {
                 const auto tab_name = std::string(x->table_name_.get(), x->table_name_size_);
                 auto table_file = sm_manager_->fhs_.at(tab_name).get();

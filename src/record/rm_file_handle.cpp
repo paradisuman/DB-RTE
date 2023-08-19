@@ -33,10 +33,7 @@ std::unique_ptr<RmRecord> RmFileHandle::get_record(const Rid& rid, Context* cont
     );
 
     // unpin 分配的页面
-    buffer_pool_manager_->unpin_page(
-        PageId {fd_, rid.page_no},
-        true
-    );
+    buffer_pool_manager_->unpin_page(PageId {fd_, rid.page_no}, true);
 
     return ret;
 }
@@ -70,16 +67,8 @@ Rid RmFileHandle::insert_record(char* buf, Context* context) {
         -1
     );
 
-    // 写缓冲之前先写日志
-    if (context != nullptr) {
-        available_page_handle.page->set_page_lsn(context->txn_->get_prev_lsn());
-    }
     // 将buf复制到空闲slot位置
-    std::copy_n(
-        buf,
-        file_hdr_.record_size,
-        available_page_handle.get_slot(available_slot_no)
-    );
+    std::copy_n(buf, file_hdr_.record_size, available_page_handle.get_slot(available_slot_no));
 
     // 更新 bitmap
     Bitmap::set(available_page_handle.bitmap, available_slot_no);
@@ -97,12 +86,13 @@ Rid RmFileHandle::insert_record(char* buf, Context* context) {
         .page_no = available_page_handle.page->get_page_id().page_no,
         .slot_no = available_slot_no
     };
+    // 完成后更新lsn
+    if (context != nullptr) {
+        available_page_handle.page->set_page_lsn(context->txn_->get_prev_lsn());
+    }
 
     // unpin 分配的页面
-    buffer_pool_manager_->unpin_page(
-        PageId {fd_, new_rid.page_no},
-        true
-    );
+    buffer_pool_manager_->unpin_page(PageId {fd_, new_rid.page_no}, true);
 
     return new_rid;
 }
@@ -121,17 +111,10 @@ void RmFileHandle::insert_record(const Rid& rid, char* buf) {
         target_page_handle.page_hdr->num_records += 1;
     }
     // 插入记录
-    std::copy_n(
-        buf,
-        file_hdr_.record_size,
-        target_page_handle.get_slot(rid.slot_no)
-    );
+    std::copy_n(buf, file_hdr_.record_size, target_page_handle.get_slot(rid.slot_no));
 
     // unpin 分配的页面
-    buffer_pool_manager_->unpin_page(
-        PageId {fd_, rid.page_no},
-        true
-    );
+    buffer_pool_manager_->unpin_page(PageId {fd_, rid.page_no}, true);
 }
 
 /**
@@ -147,10 +130,6 @@ void RmFileHandle::delete_record(const Rid& rid, Context* context) {
 
     // 获取指定记录所在的page handle
     auto target_page_handle = fetch_page_handle(rid.page_no);
-    // 写缓冲之前先写日志
-    if (context != nullptr) {
-        target_page_handle.page->set_page_lsn(context->txn_->get_prev_lsn());
-    }
     // 删除一条记录后页面由满变为未满 需要调用release_page_handle()
     if (target_page_handle.page_hdr->num_records == file_hdr_.num_records_per_page) {
         release_page_handle(target_page_handle);
@@ -158,6 +137,10 @@ void RmFileHandle::delete_record(const Rid& rid, Context* context) {
     // 更新 page_handle.page_hdr中的数据结构
     target_page_handle.page_hdr->num_records -= 1;
     Bitmap::reset(target_page_handle.bitmap, rid.slot_no);
+    // 完成后记录lsn
+    if (context != nullptr) {
+        target_page_handle.page->set_page_lsn(context->txn_->get_prev_lsn());
+    }
     // unpin 分配的页面
     buffer_pool_manager_->unpin_page(target_page_handle.page->get_page_id(), true);
 }
@@ -175,21 +158,14 @@ void RmFileHandle::update_record(const Rid& rid, char* buf, Context* context) {
 
     // 获取指定记录所在的 page handle
     auto target_page_handle = fetch_page_handle(rid.page_no);
-    // 写缓冲之前先写日志
+    // 更新记录
+    std::copy_n(buf, file_hdr_.record_size, target_page_handle.get_slot(rid.slot_no));
+    // unpin 分配的页面
+    buffer_pool_manager_->unpin_page(PageId {fd_, rid.page_no}, true);
+    // 完成后记录lsn
     if (context != nullptr) {
         target_page_handle.page->set_page_lsn(context->txn_->get_prev_lsn());
     }
-    // 更新记录
-    std::copy_n(
-        buf,
-        file_hdr_.record_size,
-        target_page_handle.get_slot(rid.slot_no)
-    );
-    // unpin 分配的页面
-    buffer_pool_manager_->unpin_page(
-        PageId {fd_, rid.page_no},
-        true
-    );
 }
 
 /**
