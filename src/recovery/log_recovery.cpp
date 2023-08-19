@@ -97,9 +97,9 @@ void RecoveryManager::analyze() {
                         redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
                     }
                     auto &redo_log_in_page = dirty_page_table[page_id];
-                //     if (redo_log_in_page.redo_logs_[0] < insert_log_record->lsn_) {
+                    if (redo_log_in_page.redo_logs_[0] < insert_log_record->lsn_) {
                 //         redo_log_in_page.redo_logs_.push_back(insert_log_record->lsn_);
-                //     }
+                    }
                     // 更新 lsn2log
                     lsn2log[insert_log_record->lsn_] = std::move(insert_log_record);
 
