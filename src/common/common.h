@@ -144,7 +144,7 @@ const std::vector<std::set<ColType>> legal_binop = {
     /* [TYPE_FLOAT]    = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
     /* [TYPE_BIGINT]   = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
     /* [TYPE_STRING]   = */ {TYPE_DATETIME, TYPE_STRING},
-    /* [TYPE_DATETIME] = */ {TYPE_DATETIME, TYPE_STRING},
+    /* [TYPE_DATETIME] = */ {TYPE_DATETIME},
 };
 
 inline bool is_compatible_type(const ColType a, const ColType b) {
