@@ -43,8 +43,13 @@ class DeleteExecutor : public AbstractExecutor {
         // 删除record file
         for (auto &rid : rids_) {
             auto rec = fh_->get_record(rid, context_);
-            // RmRecord dele(rec->size);
-            // memcpy(dele.data, rec->data,rec->size);
+
+            // 日志落盘
+            auto delete_log_record = DeleteLogRecord(context_->txn_->get_transaction_id(), *rec, rid, tab_name_);
+            delete_log_record.prev_lsn_ = context_->txn_->get_prev_lsn();
+            auto last_lsn = context_->log_mgr_->add_log_to_buffer(&delete_log_record);
+            // context_->log_mgr_->flush_log_to_disk();
+            context_->txn_->set_prev_lsn(last_lsn);
 
             for(size_t i = 0; i < tab_.indexes.size(); ++i) {
                 IndexMeta& index = tab_.indexes[i];
@@ -55,6 +60,7 @@ class DeleteExecutor : public AbstractExecutor {
                     memcpy(key + offset, rec->data + index.cols[i].offset, index.cols[i].len);
                     offset += index.cols[i].len;
                 }
+                // TODO 索引删除日志
                 ih->delete_entry(key, context_->txn_);
             }
 

@@ -34,6 +34,8 @@ class Query{
     std::vector<SetClause> set_clauses;
     // insert 的values值
     std::vector<Value> values;
+    // load 的 路径位置
+    std::string path;
 
     bool is_all = false;
 

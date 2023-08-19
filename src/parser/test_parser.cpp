@@ -13,7 +13,13 @@ See the Mulan PSL v2 for more details. */
 #include <fstream>
 
 #include "parser.h"
+#include "common/config.h"
 
+<<<<<<< HEAD
+bool output2file = true;
+
+=======
+>>>>>>> origin/problem7-overoveragain
 int main(int argc, char *argv[]) {
     if (argc == 1) {
         std::cerr << "Error: Please provide the test script file.";

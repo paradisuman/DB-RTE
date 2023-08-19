@@ -89,6 +89,8 @@ class RmFileHandle {
 
     RmPageHandle fetch_page_handle(int page_no) const;
 
+    lsn_t get_page_lsn(page_id_t page_id);
+
    private:
     RmPageHandle create_page_handle();
 

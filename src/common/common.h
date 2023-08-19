@@ -67,8 +67,10 @@ struct Value {
     }
 
     void init_raw(size_t len) {
-        assert(raw == nullptr);
-        raw = std::make_shared<RmRecord>(len);
+        // assert(raw == nullptr);
+        if (raw == nullptr) {
+            raw = std::make_shared<RmRecord>(len);
+        }
         if (type == TYPE_INT) {
             assert(len >= sizeof(int));
             if (len == sizeof(int))
@@ -134,6 +136,7 @@ struct Condition {
 struct SetClause {
     TabCol lhs;
     Value rhs;
+    bool is_selfadd = false;
 };
 
 const std::vector<std::set<ColType>> legal_binop = {
@@ -141,7 +144,7 @@ const std::vector<std::set<ColType>> legal_binop = {
     /* [TYPE_FLOAT]    = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
     /* [TYPE_BIGINT]   = */ {TYPE_INT, TYPE_BIGINT, TYPE_FLOAT},
     /* [TYPE_STRING]   = */ {TYPE_DATETIME, TYPE_STRING},
-    /* [TYPE_DATETIME] = */ {TYPE_DATETIME, TYPE_STRING},
+    /* [TYPE_DATETIME] = */ {TYPE_DATETIME},
 };
 
 inline bool is_compatible_type(const ColType a, const ColType b) {

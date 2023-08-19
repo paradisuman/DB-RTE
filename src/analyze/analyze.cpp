@@ -91,7 +91,7 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
                 throw IncompatibleTypeError(coltype2str(lhs_type), coltype2str(rhs_type));
             }
             val.init_raw(col->len);
-            query->set_clauses.push_back(SetClause {sel_col, val});
+            query->set_clauses.push_back(SetClause {sel_col, val, set_clause->is_selfadd});
         }
 
         //处理where条件
@@ -105,6 +105,10 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
         // 处理insert 的values值
         for (auto &sv_val : x->vals) {
             query->values.push_back(convert_sv_value(sv_val));
+        }
+    } else if (auto x = std::dynamic_pointer_cast<ast::LoadStmt>(parse)) {
+        if ((sm_manager_->db_).is_table(x->tab_name) == false) {
+            throw TableNotFoundError(x->tab_name);
         }
     } else {
         // do nothing

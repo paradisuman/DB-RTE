@@ -169,9 +169,10 @@ struct Col : public Expr {
 struct SetClause : public TreeNode {
     std::string col_name;
     std::shared_ptr<Value> val;
+    bool is_selfadd;
 
-    SetClause(std::string col_name_, std::shared_ptr<Value> val_) :
-            col_name(std::move(col_name_)), val(std::move(val_)) {}
+    SetClause(std::string col_name_, std::shared_ptr<Value> val_, bool is_selfadd_ = false) :
+            col_name(std::move(col_name_)), val(std::move(val_)), is_selfadd(is_selfadd_) {}
 };
 
 struct BinaryExpr : public TreeNode {
@@ -185,10 +186,16 @@ struct BinaryExpr : public TreeNode {
 
 struct OrderBy : public TreeNode
 {
-    std::shared_ptr<Col> cols;
+    std::shared_ptr<Col> col;
     OrderByDir orderby_dir;
-    OrderBy( std::shared_ptr<Col> cols_, OrderByDir orderby_dir_) :
-       cols(std::move(cols_)), orderby_dir(std::move(orderby_dir_)) {}
+    OrderBy( std::shared_ptr<Col> col_, OrderByDir orderby_dir_) :
+       col(std::move(col_)), orderby_dir(orderby_dir_) {}
+};
+
+struct LoadStmt : public TreeNode {
+    std::string path, tab_name;
+
+    LoadStmt(std::string path_, std::string tab_name_) : path(std::move(path_)), tab_name(std::move(tab_name_)) {}
 };
 
 struct InsertStmt : public TreeNode {
@@ -235,23 +242,36 @@ struct SelectStmt : public TreeNode {
     std::vector<std::shared_ptr<BinaryExpr>> conds;
     std::vector<std::shared_ptr<JoinExpr>> jointree;
 
-    bool has_sort;
-    std::shared_ptr<OrderBy> order;
+    bool has_sort = false;
+    std::vector<std::shared_ptr<OrderBy>> orders;
+    int limit = -1;
 
-    AggregateType aggregate_type;
+    AggregateType aggregate_type = SV_NONE;
     std::string alias;
 
+    inline static struct OrderSelect {} order;
+    inline static struct SingleSelect {} single;
+    inline static struct AggregateSelect {} aggregate;
+
+    SelectStmt(AggregateSelect policy,
+               std::vector<std::shared_ptr<Col>> cols_,
+               std::vector<std::string> tabs_,
+               std::vector<std::shared_ptr<BinaryExpr>> conds_,
+               AggregateType aggregate_type_ = SV_NONE,
+               std::string alias_ = std::string()) :
+            cols(std::move(cols_)), tabs(std::move(tabs_)), conds(std::move(conds_)),
+            aggregate_type(aggregate_type_), alias(std::move(alias_)) {
+                has_sort = !orders.empty();
+            }
 
     SelectStmt(std::vector<std::shared_ptr<Col>> cols_,
                std::vector<std::string> tabs_,
                std::vector<std::shared_ptr<BinaryExpr>> conds_,
-               std::shared_ptr<OrderBy> order_,
-               AggregateType aggregate_type_ = SV_NONE,
-               std::string alias_ = std::string()) :
+               std::vector<std::shared_ptr<OrderBy>> orders_,
+               int limit_ = -1) :
             cols(std::move(cols_)), tabs(std::move(tabs_)), conds(std::move(conds_)), 
-            order(std::move(order_)),
-            aggregate_type(aggregate_type_), alias(std::move(alias_)) {
-                has_sort = (bool)order;
+            orders(std::move(orders_)), limit(limit_) {
+                has_sort = !orders.empty();
             }
 };
 
@@ -262,8 +282,6 @@ struct SemValue {
     float sv_float;
     datetime_t sv_datetime;
     std::string sv_str;
-
-    OrderByDir sv_orderby_dir;
     std::vector<std::string> sv_strs;
 
     std::shared_ptr<TreeNode> sv_node;
@@ -289,9 +307,11 @@ struct SemValue {
     std::shared_ptr<BinaryExpr> sv_cond;
     std::vector<std::shared_ptr<BinaryExpr>> sv_conds;
 
+    OrderByDir sv_orderby_dir;
     std::shared_ptr<OrderBy> sv_orderby;
 
     AggregateType sv_aggregate_type;
+    std::vector<std::shared_ptr<OrderBy>> sv_orderbys;
 };
 
 extern std::shared_ptr<ast::TreeNode> parse_tree;

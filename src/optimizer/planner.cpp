@@ -212,7 +212,7 @@ std::shared_ptr<Plan> Planner::physical_optimization(std::shared_ptr<Query> quer
     // 其他物理优化
 
     // 处理orderby
-    // plan = generate_sort_plan(query, std::move(plan)); 
+    plan = generate_sort_plan(query, std::move(plan)); 
 
     return plan;
 }
@@ -338,18 +338,54 @@ std::shared_ptr<Plan> Planner::generate_sort_plan(std::shared_ptr<Query> query, 
     }
     std::vector<std::string> tables = query->tables;
     std::vector<ColMeta> all_cols;
-    for (auto &sel_tab_name : tables) {
+    for (const auto &sel_tab_name : tables) {
         // 这里db_不能写成get_db(), 注意要传指针
         const auto &sel_tab_cols = sm_manager_->db_.get_table(sel_tab_name).cols;
         all_cols.insert(all_cols.end(), sel_tab_cols.begin(), sel_tab_cols.end());
     }
-    TabCol sel_col;
-    for (auto &col : all_cols) {
-        if(col.name.compare(x->order->cols->col_name) == 0 )
-        sel_col = {.tab_name = col.tab_name, .col_name = col.name};
+    std::vector<std::pair<TabCol, bool>> sel_cols;
+    // 检查列是否存在是否又歧义 若无加入sel cols
+    for (const auto &order : x->orders) {
+        const auto &target_col = order->col;
+        // 未指定表 遍历所有潜在列查看列名是否唯一
+        if (target_col->tab_name.empty()) {
+            std::string tab_name;
+            for (const auto &col : all_cols) {
+                if (col.name != target_col->col_name)
+                    continue;
+                if (!tab_name.empty())
+                    // 非首次匹配到表名 抛出异常
+                    throw AmbiguousColumnError(target_col->col_name);
+                // 首次匹配到表名
+                tab_name = col.tab_name;
+            }
+            // 未匹配到表名 列不存在
+            if (tab_name.empty())
+                throw ColumnNotFoundError(target_col->col_name);
+            sel_cols.emplace_back(TabCol {tab_name, target_col->col_name}, (order->orderby_dir == ast::OrderBy_DESC));
+        }
+        // 指定表 则检查指定表中是否存在指定列
+        else {
+            if (all_cols.end() ==  std::find_if(
+                all_cols.begin(),
+                all_cols.end(),
+                [&] (const ColMeta &col) { return col.tab_name == target_col->tab_name && col.name == target_col->col_name; }
+            ))
+                throw ColumnNotFoundError(target_col->col_name);
+            // 匹配到则加入 sel_cols
+            sel_cols.emplace_back(
+                TabCol {target_col->tab_name, target_col->col_name},
+                (order->orderby_dir == ast::OrderBy_DESC)
+            );
+        }
     }
-    return std::make_shared<SortPlan>(T_Sort, std::move(plan), sel_col, 
-                                    x->order->orderby_dir == ast::OrderBy_DESC);
+    for (const auto &col : all_cols) {
+        for (const auto &order : x->orders) {
+            if ((order->col->tab_name == "" ? true : col.tab_name == order->col->tab_name) && col.name == order->col->col_name)
+                sel_cols.emplace_back(TabCol {col.tab_name, col.name}, (order->orderby_dir == ast::OrderBy_DESC));
+        }
+    }
+    return std::make_shared<SortPlan>(T_Sort, std::move(plan), std::move(sel_cols), x->limit);
 }
 
 
@@ -408,6 +444,8 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query, Context 
         // insert;
         plannerRoot = std::make_shared<DMLPlan>(T_Insert, std::shared_ptr<Plan>(),  x->tab_name,  
                                                     query->values, std::vector<Condition>(), std::vector<SetClause>());
+    } else if (auto x = std::dynamic_pointer_cast<ast::LoadStmt>(query->parse)) {
+        plannerRoot = std::make_shared<LoadPlan>(x->tab_name, x->path);
     } else if (auto x = std::dynamic_pointer_cast<ast::DeleteStmt>(query->parse)) {
         // delete;
         // 生成表扫描方式

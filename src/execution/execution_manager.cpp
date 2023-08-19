@@ -22,6 +22,9 @@ See the Mulan PSL v2 for more details. */
 #include "record_printer.h"
 #include "common/datetime_utils.hpp"
 
+#include <fstream>
+#include <boost/tokenizer.hpp>
+
 const char *help_info = "Supported SQL syntax:\n"
                    "  command ;\n"
                    "command:\n"
@@ -143,6 +146,11 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         captions.push_back(sel_col.col_name);
     }
 
+    // print header into file
+    std::fstream outfile;
+    if (output2file) {
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+    }
     // Print header into buffer
     RecordPrinter rec_printer(sel_cols.size());
     switch (tag) {
@@ -150,14 +158,14 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         rec_printer.print_separator(context);
         rec_printer.print_record(captions, context);
         rec_printer.print_separator(context);
-        // print header into file
-        std::fstream outfile;
-        outfile.open("output.txt", std::ios::out | std::ios::app);
-        outfile << "|";
-        for(size_t i = 0; i < captions.size(); ++i) {
-            outfile << " " << captions[i] << " |";
+
+        if (output2file) {
+            outfile << "|";
+            for(size_t i = 0; i < captions.size(); ++i) {
+                outfile << " " << captions[i] << " |";
+            }
+            outfile << "\n";
         }
-        outfile << "\n";
 
         // Print records
         size_t num_rec = 0;
@@ -170,6 +178,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
                 char *rec_buf = Tuple->data + col.offset;
                 if (col.type == TYPE_INT) {
                     col_str = std::to_string(*(int *)rec_buf);
+                } else if (col.type == TYPE_BIGINT) {
+                    col_str = std::to_string(*(int64_t *)rec_buf);
                 } else if (col.type == TYPE_FLOAT) {
                     col_str = std::to_string(*(float *)rec_buf);
                 } else if (col.type == TYPE_DATETIME) {
@@ -183,14 +193,15 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
             // print record into buffer
             rec_printer.print_record(columns, context);
             // print record into file
-            outfile << "|";
-            for(size_t i = 0; i < columns.size(); ++i) {
-                outfile << " " << columns[i] << " |";
+            if (output2file) {
+                outfile << "|";
+                for(size_t i = 0; i < columns.size(); ++i) {
+                    outfile << " " << columns[i] << " |";
+                }
+                outfile << "\n";
             }
-            outfile << "\n";
             num_rec++;
         }
-        outfile.close();
         // Print footer into buffer
         rec_printer.print_separator(context);
         // Print record count into buffer
@@ -203,13 +214,13 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         rec_printer.print_record(captions, context);
         rec_printer.print_separator(context);
         // print header into file
-        std::fstream outfile;
-        outfile.open("output.txt", std::ios::out | std::ios::app);
-        outfile << "|";
-        for(size_t i = 0; i < captions.size(); ++i) {
-            outfile << " " << captions[i] << " |";
+        if (output2file) {
+            outfile << "|";
+            for(size_t i = 0; i < captions.size(); ++i) {
+                outfile << " " << captions[i] << " |";
+            }
+            outfile << "\n";
         }
-        outfile << "\n";
 
         // Print records
         size_t num_rec = 0;
@@ -220,8 +231,9 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         // print record into buffer
         rec_printer.print_record({std::to_string(num_rec)}, context);
         // print record into file
-        outfile << "|" << " " << std::to_string(num_rec) << " |" << '\n';
-        outfile.close();
+        if (output2file) {
+            outfile << "|" << " " << std::to_string(num_rec) << " |" << '\n';
+        }
         // Print footer into buffer
         rec_printer.print_separator(context);
         // Print record count into buffer
@@ -234,13 +246,13 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         rec_printer.print_record(captions, context);
         rec_printer.print_separator(context);
         // print header into file
-        std::fstream outfile;
-        outfile.open("output.txt", std::ios::out | std::ios::app);
-        outfile << "|";
-        for(size_t i = 0; i < captions.size(); ++i) {
-            outfile << " " << captions[i] << " |";
+        if (output2file) {
+            outfile << "|";
+            for(size_t i = 0; i < captions.size(); ++i) {
+                outfile << " " << captions[i] << " |";
+            }
+            outfile << "\n";
         }
-        outfile << "\n";
 
         const auto &col = executorTreeRoot->cols().front();
         // Print records
@@ -252,6 +264,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         val.type = col.type;
         if (col.type == TYPE_INT)
             val.int_val = 0;
+        else if (col.type == TYPE_BIGINT)
+            val.bigint_val = 0;
         else if (col.type == TYPE_FLOAT)
             val.float_val = 0;
         else if (col.type == TYPE_STRING)
@@ -276,6 +290,7 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
             std::vector<std::string> columns;
             switch (col.type) {
                 case TYPE_INT : columns.push_back(std::to_string(*(int *)Tuple->data)); break;
+                case TYPE_BIGINT : columns.push_back(std::to_string(*(int64_t *)Tuple->data)); break;
                 case TYPE_FLOAT : columns.push_back(std::to_string(*(float *)Tuple->data)); break;
                 case TYPE_STRING : columns.push_back(std::string((char *)Tuple->data, col.len)); break;
                 default : throw InternalError("Unsupported type.");
@@ -283,11 +298,13 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
             // print record into buffer
             rec_printer.print_record(columns, context);
             // print record into file
-            outfile << "|";
-            for(size_t i = 0; i < columns.size(); ++i) {
-                outfile << " " << columns[i] << " |";
+            if (output2file) {
+                outfile << "|";
+                for(size_t i = 0; i < columns.size(); ++i) {
+                    outfile << " " << columns[i] << " |";
+                }
+                outfile << "\n";
             }
-            outfile << "\n";
         }
         // Print footer into buffer
         rec_printer.print_separator(context);
@@ -301,13 +318,13 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         rec_printer.print_record(captions, context);
         rec_printer.print_separator(context);
         // print header into file
-        std::fstream outfile;
-        outfile.open("output.txt", std::ios::out | std::ios::app);
-        outfile << "|";
-        for(size_t i = 0; i < captions.size(); ++i) {
-            outfile << " " << captions[i] << " |";
+        if (output2file) {
+            outfile << "|";
+            for(size_t i = 0; i < captions.size(); ++i) {
+                outfile << " " << captions[i] << " |";
+            }
+            outfile << "\n";
         }
-        outfile << "\n";
 
         const auto &col = executorTreeRoot->cols().front();
         // Print records
@@ -318,6 +335,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         val.type = col.type;
         if (col.type == TYPE_INT)
             val.int_val = 0;
+        else if (col.type == TYPE_BIGINT)
+            val.bigint_val = 0;
         else if (col.type == TYPE_FLOAT)
             val.float_val = 0;
         else if (col.type == TYPE_STRING)
@@ -342,6 +361,7 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
             std::vector<std::string> columns;
             switch (col.type) {
                 case TYPE_INT : columns.push_back(std::to_string(*(int *)Tuple->data)); break;
+                case TYPE_BIGINT : columns.push_back(std::to_string(*(int64_t *)Tuple->data)); break;
                 case TYPE_FLOAT : columns.push_back(std::to_string(*(float *)Tuple->data)); break;
                 case TYPE_STRING : columns.push_back(std::string((char *)Tuple->data, col.len)); break;
                 default : throw InternalError("Unsupported type.");
@@ -349,11 +369,13 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
             // print record into buffer
             rec_printer.print_record(columns, context);
             // print record into file
-            outfile << "|";
-            for(size_t i = 0; i < columns.size(); ++i) {
-                outfile << " " << columns[i] << " |";
+            if (output2file) {
+                outfile << "|";
+                for(size_t i = 0; i < columns.size(); ++i) {
+                    outfile << " " << columns[i] << " |";
+                }
+                outfile << "\n";
             }
-            outfile << "\n";
         }
         // Print footer into buffer
         rec_printer.print_separator(context);
@@ -366,19 +388,21 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         rec_printer.print_record(captions, context);
         rec_printer.print_separator(context);
         // print header into file
-        std::fstream outfile;
-        outfile.open("output.txt", std::ios::out | std::ios::app);
-        outfile << "|";
-        for(size_t i = 0; i < captions.size(); ++i) {
-            outfile << " " << captions[i] << " |";
+        if (output2file) {
+            outfile << "|";
+            for(size_t i = 0; i < captions.size(); ++i) {
+                outfile << " " << captions[i] << " |";
+            }
+            outfile << "\n";
         }
-        outfile << "\n";
 
         const auto &col = executorTreeRoot->cols().front();
         Value sum;
         sum.type = col.type;
         if (col.type == TYPE_INT)
             sum.int_val = 0;
+        else if (col.type == TYPE_BIGINT)
+            sum.bigint_val = 0;
         else if (col.type == TYPE_FLOAT)
             sum.float_val = 0;
         // 执行query_plan
@@ -389,6 +413,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
             val.load_raw(col.len, Tuple->data);
             if (col.type == TYPE_INT) {
                 sum.int_val += val.int_val;
+            } else if (col.type == TYPE_BIGINT) {
+                sum.bigint_val += val.bigint_val;
             } else if (col.type == TYPE_FLOAT) {
                 sum.float_val += val.float_val;
             }
@@ -396,12 +422,20 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         // print record into buffer
         if (col.type == TYPE_INT) {
             rec_printer.print_record({std::to_string(sum.int_val)}, context);
-            outfile << "|" << " " << std::to_string(sum.int_val) << " |" << '\n';
+        } else if (col.type == TYPE_BIGINT) {
+            rec_printer.print_record({std::to_string(sum.bigint_val)}, context);
         } else if (col.type == TYPE_FLOAT) {
             rec_printer.print_record({std::to_string(sum.float_val)}, context);
-            outfile << "|" << " " << std::to_string(sum.float_val) << " |" << '\n';
         }
-        outfile.close();
+        if (output2file) {
+            if (col.type == TYPE_INT) {
+                outfile << "|" << " " << std::to_string(sum.int_val) << " |" << '\n';
+            } else if (col.type == TYPE_BIGINT) {
+                outfile << "|" << " " << std::to_string(sum.bigint_val) << " |" << '\n';
+            } else if (col.type == TYPE_FLOAT) {
+                outfile << "|" << " " << std::to_string(sum.float_val) << " |" << '\n';
+            }
+        }
         // Print footer into buffer
         rec_printer.print_separator(context);
         // Print record count into buffer
@@ -410,9 +444,74 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
     }
     default : throw InternalError("Unkown portal tag.");
     }
+    if (output2file) {
+        outfile.close();
+    }
 }
 
 // 执行DML语句
-void QlManager::run_dml(std::unique_ptr<AbstractExecutor> exec){
+void QlManager::run_dml(std::unique_ptr<AbstractExecutor> exec) {
     exec->Next();
+}
+
+void QlManager::load_csv(std::shared_ptr<LoadPlan> plan, Context *context) {
+    const auto &tab_name = plan->tab_name_;
+    const auto &path = plan->path_;
+
+    const auto &tab = sm_manager_->db_.get_table(tab_name);
+    const auto &cols = tab.cols;
+
+    auto csv_file = std::ifstream(path);
+
+    if (!csv_file.is_open()) {
+        throw InternalError("Cannot open the CSV file.");
+    }
+
+    using Token = boost::tokenizer<boost::escaped_list_separator<char>>;
+    // Check header
+    auto is_header_valid = [&] () {
+        std::string header_raw;
+        std::getline(csv_file, header_raw);
+        auto headers = Token(header_raw);
+
+        auto hdr_itr = headers.begin();
+        auto col_itr = cols.begin();
+        for (; hdr_itr != headers.end() && col_itr != cols.end(); hdr_itr++, col_itr++) {
+            if (*hdr_itr == col_itr->name) {
+                continue;
+            }
+            return false;
+        }
+        if (hdr_itr != headers.end() || col_itr != cols.end()) {
+            return false;
+        }
+        return true;
+    } ();
+    if (!is_header_valid) {
+        throw InternalError("The CSV header mismatches table header.");
+    }
+
+    std::string line;
+    while (std::getline(csv_file, line)) {
+        auto line_tok = Token(line);
+
+        auto csv_itr = line_tok.begin();
+        auto col_itr = cols.begin();
+
+        std::vector<Value> values;
+        for (; !csv_itr.at_end(); csv_itr++, col_itr++) {
+            Value val;
+            val.type = col_itr->type;
+            switch (val.type) {
+                case TYPE_INT : val.set_int(std::stoi(*csv_itr)); break;
+                case TYPE_BIGINT : val.set_bigint(std::stoll(*csv_itr)); break;
+                case TYPE_FLOAT : val.set_float(std::stof(*csv_itr)); break;
+                case TYPE_STRING : val.set_str(*csv_itr); break;
+                case TYPE_DATETIME : val.set_datetime(datetime::to_bcd(*csv_itr)); break;
+            }
+            values.push_back(std::move(val));
+        }
+
+        InsertExecutor(sm_manager_, tab_name, std::move(values), context).Next();
+    }
 }

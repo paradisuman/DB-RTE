@@ -95,13 +95,16 @@ void SmManager::open_db(const std::string& db_name) {
 
     // 加载数据库表文件
     for (const auto &[tab_name, _] : db_.tabs_) {
-        fhs_.emplace(
-            tab_name,
-            rm_manager_->open_file(tab_name)
-        );
+        fhs_.emplace(tab_name, rm_manager_->open_file(tab_name));
     }
 
     // TODO: 加载数据索引文件
+    for (const auto &[tab_name, tab] : db_.tabs_) {
+        for (auto &index : tab.indexes) {
+            std::string index_name = ix_manager_->get_index_name(tab_name, index.cols);
+            ihs_.emplace(tab_name, ix_manager_->open_index(tab_name, tab.cols));
+        }
+    }
 }
 
 /**
@@ -136,9 +139,17 @@ void SmManager::close_db() {
  * @param {Context*} context 
  */
 void SmManager::show_tables(Context* context) {
-    std::fstream outfile;
-    outfile.open("output.txt", std::ios::out | std::ios::app);
-    outfile << "| Tables |\n";
+    if (output2file) {
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+        outfile << "| Tables |\n";
+        for (auto &entry : db_.tabs_) {
+            auto &tab = entry.second;
+            outfile << "| " << tab.name << " |\n";
+        }
+        outfile.close();
+    }
+
     RecordPrinter printer(1);
     printer.print_separator(context);
     printer.print_record({"Tables"}, context);
@@ -146,10 +157,8 @@ void SmManager::show_tables(Context* context) {
     for (auto &entry : db_.tabs_) {
         auto &tab = entry.second;
         printer.print_record({tab.name}, context);
-        outfile << "| " << tab.name << " |\n";
     }
     printer.print_separator(context);
-    outfile.close();
 }
 
 /**
@@ -217,14 +226,17 @@ void SmManager::drop_table(const std::string& tab_name, Context* context) {
         throw TableNotFoundError(tab_name);
     }
 
+    // TODO: 删除表索引
+    for (auto &index : db_.tabs_[tab_name].indexes) {
+        drop_index(db_.tabs_[tab_name].name, index.cols, context);
+    }
+
     //先删除db_中的表，再删除文件表，最后删除fhs_中的表
     fhs_[tab_name]->close_all_page();
     rm_manager_->close_file(fhs_[tab_name].get());
     rm_manager_->destroy_file(tab_name);
     fhs_.erase(tab_name);
     db_.tabs_.erase(tab_name);
-
-    // TODO: 删除表索引
 
     flush_meta();
 }
@@ -372,15 +384,19 @@ void SmManager::show_index(const std::string& tab_name, Context* context) {
         index_names.push_back(name);
     }
 
-    std::fstream outfile;
-    outfile.open("output.txt", std::ios::out | std::ios::app);
+    if (output2file) {
+        std::fstream outfile;
+        outfile.open("output.txt", std::ios::out | std::ios::app);
+        for (auto &x : index_names) {
+            outfile << "| "<< tab_name <<" | unique | ";
+            outfile << x <<" |\n";
+        }
+        outfile.close();
+    }
     RecordPrinter printer(3);
     printer.print_separator(context);
     for (auto &x : index_names) {
-        outfile << "| "<< tab_name <<" | unique | ";
-        outfile << x <<" |\n";
         printer.print_record({tab_name, "unique", x}, context);
     }
     printer.print_separator(context);
-    outfile.close();
 }

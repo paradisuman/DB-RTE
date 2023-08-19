@@ -30,6 +30,7 @@ typedef enum PlanTag{
     T_CreateIndex,
     T_DropIndex,
     T_Insert,
+    T_Load,
     T_Update,
     T_Delete,
     T_select,
@@ -124,17 +125,28 @@ class ProjectionPlan : public Plan
 class SortPlan : public Plan
 {
     public:
-        SortPlan(PlanTag tag, std::shared_ptr<Plan> subplan, TabCol sel_col, bool is_desc)
+        SortPlan(PlanTag tag, std::shared_ptr<Plan> subplan, std::vector<std::pair<TabCol, bool>> sel_col, int limit)
         {
             Plan::tag = tag;
             subplan_ = std::move(subplan);
-            sel_col_ = sel_col;
-            is_desc_ = is_desc;
+            sel_col_ = std::move(sel_col);
+            limit_ = limit;
         }
         ~SortPlan(){}
         std::shared_ptr<Plan> subplan_;
-        TabCol sel_col_;
-        bool is_desc_;
+        std::vector<std::pair<TabCol, bool>> sel_col_;
+        int limit_;
+};
+
+class LoadPlan : public Plan {
+    public:
+        LoadPlan(std::string tab_name, std::string path) {
+            Plan::tag = PlanTag::T_Load;
+            tab_name_ = std::move(tab_name);
+            path_ = std::move(path);
+        }
+        ~LoadPlan() {}
+        std::string tab_name_, path_;
 };
 
 // dml语句，包括insert; delete; update; select语句　

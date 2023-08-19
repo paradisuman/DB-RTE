@@ -44,7 +44,7 @@ class UpdateExecutor : public AbstractExecutor {
         
         // 符合条件字段在rids中
         // 对每行数据进行更新
-        for (const auto &rid : rids_) {
+        for (auto &rid : rids_) {
             // 获取原信息
             auto target_record = fh_->get_record(rid, context_);
             RmRecord new_rcd(fh_->get_file_hdr().record_size, target_record->data);
@@ -53,14 +53,25 @@ class UpdateExecutor : public AbstractExecutor {
             // 更新数据
             for (const auto &x : set_clauses_) {
                 const auto &col = *tab_.get_col(x.lhs.col_name);
-                auto &val = x.rhs;
+                auto val = x.rhs;
                 if (!is_compatible_type(col.type, val.type)) {
                     throw IncompatibleTypeError(coltype2str(col.type), coltype2str(val.type));
                 }
                 // 新纪录在这里
+                if (x.is_selfadd) {
+                    Value old_val;
+                    old_val.type = col.type;
+                    old_val.load_raw(col.len, target_record->data + col.offset);
+                    switch (col.type) {
+                        case TYPE_INT : val.int_val += old_val.int_val; break;
+                        case TYPE_BIGINT : val.bigint_val += old_val.bigint_val; break;
+                        case TYPE_FLOAT : val.float_val += old_val.float_val; break;
+                        default : throw InternalError("Unsupported operation.");
+                    }
+                    val.init_raw(col.len);
+                }
                 memcpy(new_rcd.data + col.offset, val.raw->data, col.len);
             }
-            
 
             std::vector<std::unique_ptr<char[]>> new_keys;
             std::vector<std::unique_ptr<char[]>> old_keys;
@@ -87,6 +98,15 @@ class UpdateExecutor : public AbstractExecutor {
                 }
             }
 
+            // 日志落盘
+            auto update_log_record = UpdateLogRecord(context_->txn_->get_transaction_id(), *target_record, new_rcd, rid, tab_name_);
+            update_log_record.prev_lsn_ = context_->txn_->get_prev_lsn();
+            auto last_lsn = context_->log_mgr_->add_log_to_buffer(&update_log_record);
+            // context_->log_mgr_->flush_log_to_disk();
+            context_->txn_->set_prev_lsn(last_lsn);
+
+            // TODO 索引日志
+
             // 删除和插入索引
             for(size_t i = 0; i < tab_.indexes.size(); ++i) {
                 auto& index = tab_.indexes[i];
@@ -104,7 +124,7 @@ class UpdateExecutor : public AbstractExecutor {
 
             // 更新record
             fh_->update_record(rid, new_rcd.data, context_);
-            
+
             WriteRecord *wr = new WriteRecord(WType::UPDATE_TUPLE, tab_name_, rid, *target_record);
             context_->txn_->append_write_record(wr);
         }

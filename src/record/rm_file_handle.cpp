@@ -34,10 +34,7 @@ std::unique_ptr<RmRecord> RmFileHandle::get_record(const Rid& rid, Context* cont
     );
 
     // unpin 分配的页面
-    buffer_pool_manager_->unpin_page(
-        PageId {fd_, rid.page_no},
-        true
-    );
+    buffer_pool_manager_->unpin_page(PageId {fd_, rid.page_no}, true);
 
     return ret;
 }
@@ -75,11 +72,7 @@ Rid RmFileHandle::insert_record(char* buf, Context* context) {
     context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
 
     // 将buf复制到空闲slot位置
-    std::copy_n(
-        buf,
-        file_hdr_.record_size,
-        available_page_handle.get_slot(available_slot_no)
-    );
+    std::copy_n(buf, file_hdr_.record_size, available_page_handle.get_slot(available_slot_no));
 
     // 更新 bitmap
     Bitmap::set(available_page_handle.bitmap, available_slot_no);
@@ -89,6 +82,7 @@ Rid RmFileHandle::insert_record(char* buf, Context* context) {
     // 注意考虑插入一条记录后页面已满的情况，需要更新file_hdr_.first_free_page_no
     if (available_page_hdr.num_records == file_hdr_.num_records_per_page) {
         file_hdr_.first_free_page_no = available_page_hdr.next_free_page_no;
+        disk_manager_->write_page(fd_, RM_FILE_HDR_PAGE, (char *)&file_hdr_, sizeof(RmFileHdr));
     }
 
     // 返回新的rid
@@ -96,12 +90,13 @@ Rid RmFileHandle::insert_record(char* buf, Context* context) {
         .page_no = available_page_handle.page->get_page_id().page_no,
         .slot_no = available_slot_no
     };
+    // 完成后更新lsn
+    if (context != nullptr) {
+        available_page_handle.page->set_page_lsn(context->txn_->get_prev_lsn());
+    }
 
     // unpin 分配的页面
-    buffer_pool_manager_->unpin_page(
-        PageId {fd_, new_rid.page_no},
-        true
-    );
+    buffer_pool_manager_->unpin_page(PageId {fd_, new_rid.page_no}, true);
 
     return new_rid;
 }
@@ -120,17 +115,10 @@ void RmFileHandle::insert_record(const Rid& rid, char* buf) {
         target_page_handle.page_hdr->num_records += 1;
     }
     // 插入记录
-    std::copy_n(
-        buf,
-        file_hdr_.record_size,
-        target_page_handle.get_slot(rid.slot_no)
-    );
+    std::copy_n(buf, file_hdr_.record_size, target_page_handle.get_slot(rid.slot_no));
 
     // unpin 分配的页面
-    buffer_pool_manager_->unpin_page(
-        PageId {fd_, rid.page_no},
-        true
-    );
+    buffer_pool_manager_->unpin_page(PageId {fd_, rid.page_no}, true);
 }
 
 /**
@@ -155,6 +143,10 @@ void RmFileHandle::delete_record(const Rid& rid, Context* context) {
     // 更新 page_handle.page_hdr中的数据结构
     target_page_handle.page_hdr->num_records -= 1;
     Bitmap::reset(target_page_handle.bitmap, rid.slot_no);
+    // 完成后记录lsn
+    if (context != nullptr) {
+        target_page_handle.page->set_page_lsn(context->txn_->get_prev_lsn());
+    }
     // unpin 分配的页面
     buffer_pool_manager_->unpin_page(target_page_handle.page->get_page_id(), true);
 }
@@ -175,16 +167,13 @@ void RmFileHandle::update_record(const Rid& rid, char* buf, Context* context) {
     // 获取指定记录所在的 page handle
     auto target_page_handle = fetch_page_handle(rid.page_no);
     // 更新记录
-    std::copy_n(
-        buf,
-        file_hdr_.record_size,
-        target_page_handle.get_slot(rid.slot_no)
-    );
+    std::copy_n(buf, file_hdr_.record_size, target_page_handle.get_slot(rid.slot_no));
     // unpin 分配的页面
-    buffer_pool_manager_->unpin_page(
-        PageId {fd_, rid.page_no},
-        true
-    );
+    buffer_pool_manager_->unpin_page(PageId {fd_, rid.page_no}, true);
+    // 完成后记录lsn
+    if (context != nullptr) {
+        target_page_handle.page->set_page_lsn(context->txn_->get_prev_lsn());
+    }
 }
 
 /**
@@ -244,6 +233,7 @@ RmPageHandle RmFileHandle::create_new_page_handle() {
     // 更新file_hdr_
     file_hdr_.num_pages += 1;
     file_hdr_.first_free_page_no = new_page_id.page_no;
+    disk_manager_->write_page(fd_, RM_FILE_HDR_PAGE, (char *)&file_hdr_, sizeof(RmFileHdr));
 
     return new_page_handle;
 }
@@ -280,4 +270,15 @@ void RmFileHandle::release_page_handle(RmPageHandle &page_handle) {
     // 单链表插入结点
     page_handle.page_hdr->next_free_page_no = file_hdr_.first_free_page_no;
     file_hdr_.first_free_page_no = page_handle.page->get_page_id().page_no;
+    disk_manager_->write_page(fd_, RM_FILE_HDR_PAGE, (char *)&file_hdr_, sizeof(RmFileHdr));
+}
+
+lsn_t RmFileHandle::get_page_lsn(page_id_t page_no) {
+    auto target_page = fetch_page_handle(page_no);
+
+    auto page_lsn = target_page.page->get_page_lsn();
+
+    buffer_pool_manager_->unpin_page(PageId {fd_, page_no}, false);
+
+    return page_lsn;
 }

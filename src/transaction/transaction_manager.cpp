@@ -35,6 +35,12 @@ Transaction * TransactionManager::begin(Transaction* txn, LogManager* log_manage
     // txn->set_start_ts(new_ts);
     txn_id_t id = txn->get_transaction_id();
 
+    auto begin_log_record = BeginLogRecord(id);
+    begin_log_record.prev_lsn_ = txn->get_prev_lsn();
+    auto last_lsn = log_manager->add_log_to_buffer(&begin_log_record);
+    // log_manager->flush_log_to_disk();
+    txn->set_prev_lsn(last_lsn);
+
     txn_map.emplace(id, txn);
     // 4. 返回当前事务指针
     return txn;
@@ -65,7 +71,11 @@ void TransactionManager::commit(Transaction* txn, LogManager* log_manager) {
     txn->get_index_latch_page_set().reset();
     txn->get_index_deleted_page_set().reset();
     // 4. 把事务日志刷入磁盘中
-    // Todo:
+    auto commit_log_record = CommitLogRecord(txn->get_transaction_id());
+    commit_log_record.prev_lsn_ = txn->get_prev_lsn();
+    auto last_lsn = log_manager->add_log_to_buffer(&commit_log_record);
+    // log_manager->flush_log_to_disk();
+    txn->set_prev_lsn(last_lsn);
     // 5. 更新事务状态
     txn->set_state(TransactionState::COMMITTED);
 }
@@ -174,6 +184,11 @@ void TransactionManager::abort(Transaction *txn, LogManager *log_manager) {
 	txn->get_lock_set()->clear();
     txn->get_write_set()->clear();
     // 4. 把事务日志刷入磁盘中
+    auto abort_log_record = AbortLogRecord(txn->get_transaction_id());
+    abort_log_record.prev_lsn_ = txn->get_prev_lsn();
+    auto last_lsn = log_manager->add_log_to_buffer(&abort_log_record);
+    // log_manager->flush_log_to_disk();
+    txn->set_prev_lsn(last_lsn);
     // 5. 更新事务状态
     txn->set_state(TransactionState::ABORTED);
 }

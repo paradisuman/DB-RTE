@@ -11,6 +11,7 @@
 %option bison-locations
 
 %{
+#include "common/config.h"
 #include "ast.h"
 #include "yacc.tab.h"
 #include "errors.h"
@@ -43,7 +44,7 @@ value_int {sign}?{digit}+
 value_float {sign}?{digit}+\.({digit}+)?
 value_datetime '{digit}{4}-{digit}{2}-{digit}{2}{white_space}{digit}{2}:{digit}{2}:{digit}{2}'
 value_string '[^']*'
-single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
+single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."|"/"|"+"
 
 %x STATE_COMMENT
 
@@ -58,7 +59,10 @@ single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
     /* white space and new line */
 {white_space} { /* ignore white space */ }
 {new_line} { /* ignore new line */ }
+
+"set output_file off" { output2file = false; }
     /* keywords */
+"LOAD" { return LOAD; }
 "SHOW" { return SHOW; }
 "BEGIN" { return TXN_BEGIN; }
 "COMMIT" { return TXN_COMMIT; }
@@ -97,6 +101,7 @@ single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
 "MIN"   { return MIN; }
 "SUM"   { return SUM; }
 "AS"    { return AS; }
+"LIMIT" { return LIMIT; }
     /* operators */
 ">=" { return GEQ; }
 "<=" { return LEQ; }

@@ -17,7 +17,8 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 #include "optimizer/plan.h"
 #include "execution/executor_abstract.h"
-#include "execution/executor_nestedloop_join.h"
+// #include "execution/executor_nestedloop_join.h"
+#include "execution/executor_blocknestedloopjoin_join.h"
 #include "execution/executor_projection.h"
 #include "execution/executor_seq_scan.h"
 #include "execution/executor_index_scan.h"
@@ -37,6 +38,7 @@ typedef enum portalTag{
     PORTAL_SELECT_WITH_SUM,
     PORTAL_DML_WITHOUT_SELECT,
     PORTAL_MULTI_QUERY,
+    PORTAL_LOAD,
     PORTAL_CMD_UTILITY,
 } portalTag;
 
@@ -69,6 +71,8 @@ class Portal
             return std::make_shared<PortalStmt>(PORTAL_CMD_UTILITY, std::vector<TabCol>(), std::unique_ptr<AbstractExecutor>(),plan);
         } else if (auto x = std::dynamic_pointer_cast<DDLPlan>(plan)) {
             return std::make_shared<PortalStmt>(PORTAL_MULTI_QUERY, std::vector<TabCol>(), std::unique_ptr<AbstractExecutor>(),plan);
+        } else if (auto x = std::dynamic_pointer_cast<LoadPlan>(plan)) {
+            return std::make_shared<PortalStmt>(PORTAL_LOAD, std::vector<TabCol>(), std::unique_ptr<AbstractExecutor>(), plan);
         } else if (auto x = std::dynamic_pointer_cast<DMLPlan>(plan)) {
             switch(x->tag) {
                 // 这里可以将select进行拆分，例如：一个select，带有return的select等
@@ -144,8 +148,6 @@ class Portal
             
                     return std::make_shared<PortalStmt>(PORTAL_DML_WITHOUT_SELECT, std::vector<TabCol>(), std::move(root), plan);
                 }
-
-
                 default:
                     throw InternalError("Unexpected field type");
                     break;
@@ -189,7 +191,10 @@ class Portal
                 ql->select_from(std::move(portal->root), std::move(portal->sel_cols), SELECT_WITH_SUM, context);
                 break;
             }
-
+            case PORTAL_LOAD : {
+                ql->load_csv(std::move(std::dynamic_pointer_cast<LoadPlan>(portal->plan)), context);
+                break;
+            }
             case PORTAL_DML_WITHOUT_SELECT:
             {
                 ql->run_dml(std::move(portal->root));
@@ -231,13 +236,12 @@ class Portal
         } else if(auto x = std::dynamic_pointer_cast<JoinPlan>(plan)) {
             std::unique_ptr<AbstractExecutor> left = convert_plan_executor(x->left_, context);
             std::unique_ptr<AbstractExecutor> right = convert_plan_executor(x->right_, context);
-            std::unique_ptr<AbstractExecutor> join = std::make_unique<NestedLoopJoinExecutor>(
+            std::unique_ptr<AbstractExecutor> join = std::make_unique<BlockNestedLoopJoinExecutor>(
                                 std::move(left), 
                                 std::move(right), std::move(x->conds_));
             return join;
         } else if(auto x = std::dynamic_pointer_cast<SortPlan>(plan)) {
-            return std::make_unique<SortExecutor>(convert_plan_executor(x->subplan_, context), 
-                                            x->sel_col_, x->is_desc_);
+            return std::make_unique<SortExecutor>(convert_plan_executor(x->subplan_, context), x->sel_col_, x->limit_);
         }
         return nullptr;
     }
