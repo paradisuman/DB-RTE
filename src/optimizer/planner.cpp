@@ -43,7 +43,7 @@ bool Planner::get_index_cols(std::string tab_name, std::vector<Condition> curr_c
     std::map<std::string, bool> isequ;
     std::map<std::string, bool> islg;
     std::map<std::string, bool> is_exist;
-    int maxlen = 0;
+    size_t maxlen = 0;
 	
     for (auto &cond : curr_conds) {
         if(cond.is_rhs_val && cond.lhs_col.tab_name.compare(tab_name) == 0)
@@ -80,7 +80,7 @@ bool Planner::get_index_cols(std::string tab_name, std::vector<Condition> curr_c
 			indexed_colnames.push_back(col.name);
             index_exist[col.name] = true;
         }
-        int i = 0, j = 0;
+        size_t i = 0, j = 0;
         // 检测是否有index中不存在的键
         for (auto &cond : curr_conds) {
             if (cond.is_rhs_val && cond.lhs_col.tab_name.compare(tab_name) == 0 && !index_exist[cond.lhs_col.col_name]) {

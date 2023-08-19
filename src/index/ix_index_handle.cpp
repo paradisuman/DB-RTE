@@ -31,7 +31,6 @@ int IxNodeHandle::lower_bound(const char *target) const {
     if(binary_search) {
         int left = 0;
         int right = page_hdr->num_key;
-        int result = page_hdr->num_key;
 
         while (left < right) {
             int mid = left + (right - left) / 2;
@@ -72,7 +71,6 @@ int IxNodeHandle::upper_bound(const char *target) const {
     if(binary_search) {
         int left = 1;
         int right = page_hdr->num_key;
-        int result = page_hdr->num_key;
 
         while (left < right) {
             int mid = left + (right - left) / 2;
@@ -381,7 +379,7 @@ bool IxIndexHandle::get_value(const char *key, std::vector<Rid> *result, Transac
 
     auto leaf_find = find_leaf_page(key,Operation::FIND,transaction);
     IxNodeHandle *leaf_node = leaf_find.first;
-    bool root_is_latch = leaf_find.second;
+    //bool root_is_latch = leaf_find.second;
 
     Rid *rid;
     // 没找到，同时释放资源
@@ -450,7 +448,7 @@ IxNodeHandle *IxIndexHandle::split(IxNodeHandle *node) {
     }
     else {
         // 更新新节点下子节点的父节点
-        page_id_t new_id = new_node->page->get_page_id().page_no;
+        //page_id_t new_id = new_node->page->get_page_id().page_no;
         for (size_t i = 0; i < total_nodes - left_end_index; ++i) {
             maintain_child(new_node, i);
         }
@@ -641,7 +639,6 @@ bool IxIndexHandle::coalesce_or_redistribute(IxNodeHandle *node, Transaction *tr
     // 4. 如果node结点和兄弟结点的键值对数量之和，能够支撑两个B+树结点（即node.size+neighbor.size >=
     // NodeMinSize*2)，则只需要重新分配键值对（调用Redistribute函数）
     // 5. 如果不满足上述条件，则需要合并两个结点，将右边的结点合并到左边的结点（调用Coalesce函数）
-    bool need_delete;
     if(node->is_root_page()){
         bool need_delete = adjust_root(node);
 
@@ -836,7 +833,7 @@ bool IxIndexHandle::coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, 
         rid,
         (*node)->get_size()
     );
-    for (size_t i = pre_size; i < (*node)->get_size(); ++i) {
+    for (size_t i = pre_size; i < (size_t)(*node)->get_size(); ++i) {
         maintain_child(*neighbor_node, i + pre_size);
     }
 
@@ -1065,7 +1062,7 @@ void IxIndexHandle::update_node(IxNodeHandle *parent_node, IxNodeHandle *node, c
     int pos = parent_node->lower_bound(node->keys);
     if (pos == 0 && !node->is_root_page()) {
         IxNodeHandle *parent = fetch_node(parent_node->get_parent_page_no());
-        char *old_key = parent_node->keys;
+        //char *old_key = parent_node->keys;
         // 先更新父节点，再更新子节点
         update_node(
             parent,
@@ -1106,7 +1103,7 @@ bool IxIndexHandle::is_key_exist(const char *key,  Transaction *transaction) {
 
     leaf_node->page->RUnLock();
     buffer_pool_manager_->unpin_page(leaf_node->get_page_id(), false);
-    
+
     return false;
 }
 
