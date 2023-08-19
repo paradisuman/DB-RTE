@@ -80,12 +80,12 @@ void RecoveryManager::analyze() {
                     buffer_.offset_ += insert_log_record->log_tot_len_;
                     // 更新 ATT
                     active_transaction_table[insert_log_record->log_tid_].push_back(insert_log_record->lsn_);
-                //     // 查看更改的页面是否是脏页 如果是则更新 DPT
-                //     const auto tab_name = std::string(insert_log_record->table_name_.get(), insert_log_record->table_name_size_);
-                //     const auto rid = insert_log_record->rid_;
-                //     auto table_file = sm_manager_->fhs_.at(tab_name).get();
-                //     auto table_fd = table_file->GetFd();
-                //     const auto page_id = PageId {table_fd, rid.page_no};
+                    // 查看更改的页面是否是脏页 如果是则更新 DPT
+                    const auto tab_name = std::string(insert_log_record->table_name_.get(), insert_log_record->table_name_size_);
+                    const auto rid = insert_log_record->rid_;
+                    auto table_file = sm_manager_->fhs_.at(tab_name).get();
+                    auto table_fd = table_file->GetFd();
+                    const auto page_id = PageId {table_fd, rid.page_no};
 
                 //     if (dirty_page_table.count(page_id) == 0) {
                 //         auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
@@ -111,13 +111,13 @@ void RecoveryManager::analyze() {
                     buffer_.offset_ += delete_log_record->log_tot_len_;
                     // 更新 ATT
                     active_transaction_table[delete_log_record->log_tid_].push_back(delete_log_record->lsn_);
-                //     // 更新 DPT
-                //     // 查看更改的页面是否是脏页 如果是则更新 DPT
-                //     const auto tab_name = std::string(delete_log_record->table_name_.get(), delete_log_record->table_name_size_);
-                //     const auto rid = delete_log_record->rid_;
-                //     auto table_file = sm_manager_->fhs_.at(tab_name).get();
-                //     auto table_fd = table_file->GetFd();
-                //     const auto page_id = PageId {table_fd, rid.page_no};
+                    // 更新 DPT
+                    // 查看更改的页面是否是脏页 如果是则更新 DPT
+                    const auto tab_name = std::string(delete_log_record->table_name_.get(), delete_log_record->table_name_size_);
+                    const auto rid = delete_log_record->rid_;
+                    auto table_file = sm_manager_->fhs_.at(tab_name).get();
+                    auto table_fd = table_file->GetFd();
+                    const auto page_id = PageId {table_fd, rid.page_no};
 
                 //     if (dirty_page_table.count(page_id) == 0) {
                 //         auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
@@ -143,12 +143,12 @@ void RecoveryManager::analyze() {
                     buffer_.offset_ += update_log_record->log_tot_len_;
                     // 更新 ATT
                     active_transaction_table[update_log_record->log_tid_].push_back(update_log_record->lsn_);
-                //     // 查看更改的页面是否是脏页 如果是则更新 DPT
-                //     const auto tab_name = std::string(update_log_record->table_name_.get(), update_log_record->table_name_size_);
-                //     const auto rid = update_log_record->rid_;
-                //     auto table_file = sm_manager_->fhs_.at(tab_name).get();
-                //     auto table_fd = table_file->GetFd();
-                //     const auto page_id = PageId {table_fd, rid.page_no};
+                    // 查看更改的页面是否是脏页 如果是则更新 DPT
+                    const auto tab_name = std::string(update_log_record->table_name_.get(), update_log_record->table_name_size_);
+                    const auto rid = update_log_record->rid_;
+                    auto table_file = sm_manager_->fhs_.at(tab_name).get();
+                    auto table_fd = table_file->GetFd();
+                    const auto page_id = PageId {table_fd, rid.page_no};
 
                 //     if (dirty_page_table.count(page_id) == 0) {
                 //         auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
