@@ -208,7 +208,7 @@ void RecoveryManager::redo() {
         for (lsn_t lsn : redo_log_in_page.redo_logs_) {
             auto log_record = lsn2log[lsn];
             if (auto x = std::dynamic_pointer_cast<InsertLogRecord>(log_record)) {
-                fh.insert_record(x->insert_value_.data, nullptr);
+                x->rid_ = fh.insert_record(x->insert_value_.data, nullptr);
             } else if (auto x = std::dynamic_pointer_cast<DeleteLogRecord>(log_record)) {
                 fh.delete_record(x->rid_, nullptr);
             } else if (auto x = std::dynamic_pointer_cast<UpdateLogRecord>(log_record)) {
