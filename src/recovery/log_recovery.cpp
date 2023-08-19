@@ -90,12 +90,12 @@ void RecoveryManager::analyze() {
                     const auto page_id = PageId {table_fd, rid.page_no};
 
                     assert(table_file != nullptr);
-                //     if (dirty_page_table.count(page_id) == 0) {
-                //         auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
-                //         auto &redo_log_in_page = itr.first->second;
-                //         redo_log_in_page.table_file_ = table_file;
-                //         redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
-                //     }
+                    if (dirty_page_table.count(page_id) == 0) {
+                        auto itr = dirty_page_table.emplace(page_id, RedoLogsInPage());
+                        auto &redo_log_in_page = itr.first->second;
+                        redo_log_in_page.table_file_ = table_file;
+                        redo_log_in_page.redo_logs_.push_back(table_file->get_page_lsn(rid.page_no));
+                    }
                 //     auto &redo_log_in_page = dirty_page_table[page_id];
                 //     if (redo_log_in_page.redo_logs_[0] < insert_log_record->lsn_) {
                 //         redo_log_in_page.redo_logs_.push_back(insert_log_record->lsn_);
