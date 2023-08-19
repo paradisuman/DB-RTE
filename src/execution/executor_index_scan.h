@@ -184,7 +184,7 @@ class IndexScanExecutor : public AbstractExecutor {
             }
         }
         fed_conds_ = conds_;
-        context_->lock_mgr_->lock_IS_on_table(context_->txn_, fh_->GetFd());
+        context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
     }
 
     void beginTuple() override {
